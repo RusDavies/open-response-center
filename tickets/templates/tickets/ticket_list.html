@@ -1,0 +1,46 @@
+{% extends "tickets/base.html" %}
+
+{% block title %}Tickets - Open Response Center{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <div>
+    <h1>{% if user.is_staff %}All tickets{% else %}My tickets{% endif %}</h1>
+    <p>Track submitted issues, evidence, replies, and lifecycle state.</p>
+  </div>
+  <a class="button primary" href="{% url 'ticket-create' %}">New ticket</a>
+</section>
+
+<section class="ticket-table">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Title</th>
+        <th>Status</th>
+        <th>SLA</th>
+        <th>Impact</th>
+        <th>System</th>
+        {% if user.is_staff %}<th>Reporter</th>{% endif %}
+        <th>Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ticket in tickets %}
+        <tr>
+          <td>#{{ ticket.id }}</td>
+          <td><a href="{% url 'ticket-detail' ticket.pk %}">{{ ticket.title }}</a></td>
+          <td><span class="pill">{{ ticket.get_status_display }}</span></td>
+          <td><span class="pill sla-{{ ticket.sla_state }}">{{ ticket.sla_state_label }}</span></td>
+          <td>{{ ticket.get_impact_display }}</td>
+          <td>{{ ticket.affected_system|default:"-" }}</td>
+          {% if user.is_staff %}<td>{{ ticket.reporter }}</td>{% endif %}
+          <td>{{ ticket.updated_at|date:"Y-m-d H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="{% if user.is_staff %}8{% else %}7{% endif %}" class="empty">No tickets yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

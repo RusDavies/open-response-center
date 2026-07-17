@@ -1,0 +1,15 @@
+{% extends "tickets/base.html" %}
+
+{% block title %}Sign in - Open Response Center{% endblock %}
+
+{% block content %}
+<section class="auth-panel">
+  <div class="login-mark" aria-hidden="true">ORC</div>
+  <h1>Sign in</h1>
+  <form method="post" class="stack">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="primary" type="submit">Sign in</button>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "tickets/base.html" %}
+
+{% block title %}New knowledge article - Open Response Center{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <div>
+    <h1>New knowledge article</h1>
+    <p>Create internal guidance, a known issue, or an operator runbook.</p>
+  </div>
+</section>
+
+<section class="form-panel">
+  <form method="post" class="stack">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="primary" type="submit">Save article</button>
+  </form>
+</section>
+{% endblock %}

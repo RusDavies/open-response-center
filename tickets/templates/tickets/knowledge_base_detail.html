@@ -1,0 +1,39 @@
+{% extends "tickets/base.html" %}
+
+{% block title %}{{ article.title }} - Open Response Center{% endblock %}
+
+{% block content %}
+<section class="ticket-header">
+  <div>
+    <p class="eyebrow">Knowledge base</p>
+    <h1>{{ article.title }}</h1>
+    {% if article.summary %}<p>{{ article.summary }}</p>{% endif %}
+  </div>
+  <span class="status">{{ article.get_audience_display }}{% if not article.is_published %} · Draft{% endif %}</span>
+</section>
+
+<section class="detail-grid">
+  <article class="main-flow article-body">
+    {{ article.body|linebreaksbr }}
+  </article>
+  <aside class="side-panel">
+    <section>
+      <h2>Scope</h2>
+      <dl>
+        <dt>Systems</dt>
+        <dd>
+          {% for system in article.systems.all %}
+            {{ system.name }}{% if not forloop.last %}, {% endif %}
+          {% empty %}
+            General
+          {% endfor %}
+        </dd>
+        <dt>Tags</dt>
+        <dd>{{ article.tags|default:"-" }}</dd>
+        <dt>Updated</dt>
+        <dd>{{ article.updated_at|date:"Y-m-d H:i" }}</dd>
+      </dl>
+    </section>
+  </aside>
+</section>
+{% endblock %}

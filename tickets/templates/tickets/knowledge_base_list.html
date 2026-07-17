@@ -1,0 +1,48 @@
+{% extends "tickets/base.html" %}
+
+{% block title %}Knowledge base - Open Response Center{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <div>
+    <h1>Knowledge base</h1>
+    <p>Internal fixes, runbooks, known issues, and reporter guidance.</p>
+  </div>
+  {% if user.is_staff %}<a class="button primary" href="{% url 'knowledge-base-create' %}">New article</a>{% endif %}
+</section>
+
+<section class="form-panel compact-search">
+  <form method="get" class="search-form">
+    <label for="kb-search">Search</label>
+    <div class="search-row">
+      <input id="kb-search" type="search" name="q" value="{{ query }}" placeholder="System, symptom, tag, or runbook">
+      <button type="submit">Search</button>
+    </div>
+  </form>
+</section>
+
+<section class="article-list">
+  {% for article in articles %}
+    <article class="article-summary">
+      <header>
+        <h2><a href="{{ article.get_absolute_url }}">{{ article.title }}</a></h2>
+        <span class="pill">{{ article.get_audience_display }}</span>
+      </header>
+      {% if article.summary %}<p>{{ article.summary }}</p>{% endif %}
+      <p class="hint">
+        {% for system in article.systems.all %}
+          {{ system.name }}{% if not forloop.last %}, {% endif %}
+        {% empty %}
+          General
+        {% endfor %}
+        {% if article.tags %} · {{ article.tags }}{% endif %}
+        {% if not article.is_published %} · Draft{% endif %}
+      </p>
+    </article>
+  {% empty %}
+    <section class="form-panel">
+      <p class="empty">No knowledge articles yet.</p>
+    </section>
+  {% endfor %}
+</section>
+{% endblock %}

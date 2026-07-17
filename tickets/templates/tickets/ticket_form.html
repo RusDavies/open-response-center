@@ -1,0 +1,43 @@
+{% extends "tickets/base.html" %}
+
+{% block title %}New ticket - Open Response Center{% endblock %}
+
+{% block content %}
+<section class="form-panel">
+  <h1>New ticket</h1>
+  <form method="post" enctype="multipart/form-data" class="stack">
+    {% csrf_token %}
+    <fieldset>
+      <legend>Basics</legend>
+      {{ form.title.as_field_group }}
+      {{ form.affected_system.as_field_group }}
+      {{ form.impact.as_field_group }}
+    </fieldset>
+    <fieldset>
+      <legend>Issue report</legend>
+      {{ form.issue_summary.as_field_group }}
+      {{ form.reproduction_steps.as_field_group }}
+      {{ form.expected_outcome.as_field_group }}
+      {{ form.actual_outcome.as_field_group }}
+      {{ form.additional_context.as_field_group }}
+    </fieldset>
+    <fieldset>
+      <legend>Evidence</legend>
+      <div class="guidance-panel">
+        <h2>Before uploading logs or screenshots</h2>
+        <ul>
+          <li>Remove passwords, tokens, API keys, session cookies, and recovery codes.</li>
+          <li>Blur private messages, email addresses, phone numbers, and unrelated customer data.</li>
+          <li>Keep timestamps, error text, request IDs, and file names when they help operators reproduce the issue.</li>
+        </ul>
+      </div>
+      {{ attachment_form.as_p }}
+      <p class="hint">Accepted: txt, log, csv, json, images, PDF, zip. Max 10 MiB.</p>
+    </fieldset>
+    <div class="actions">
+      <button class="primary" type="submit">Submit ticket</button>
+      <a class="button" href="{% url 'ticket-list' %}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

@@ -1,0 +1,25 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: localhost/open-response-center:latest
+    env_file:
+      - .env
+    environment:
+      DJANGO_DEBUG: "false"
+      DJANGO_MEDIA_ROOT: /app/data/uploads
+      DJANGO_SQLITE_PATH: /app/data/db.sqlite3
+      DJANGO_STATIC_ROOT: /app/staticfiles
+      OPENCLAW_WORKSPACE_ROOT: /workspace
+    ports:
+      - "0.0.0.0:8000:8000"
+    volumes:
+      - open-response-center-data:/app/data:U
+      - open-response-center-static:/app/staticfiles:U
+      - open-response-center-openclaw:/workspace:U
+
+volumes:
+  open-response-center-data:
+  open-response-center-static:
+  open-response-center-openclaw:

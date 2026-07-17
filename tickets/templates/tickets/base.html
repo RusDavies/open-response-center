@@ -1,0 +1,38 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Open Response Center{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'tickets/app.css' %}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{% url 'ticket-list' %}">
+      <span class="brand-mark" aria-hidden="true">ORC</span>
+      <span>Open Response Center</span>
+    </a>
+    <nav>
+      {% if user.is_authenticated %}
+        <a href="{% url 'ticket-create' %}">New ticket</a>
+        <a href="{% url 'knowledge-base-list' %}">Knowledge base</a>
+        <a href="{% url 'notification-preferences' %}">Email preferences</a>
+        {% if user.is_staff %}<a href="{% url 'admin:index' %}">Admin</a>{% endif %}
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button type="submit">Sign out</button>
+        </form>
+      {% endif %}
+    </nav>
+  </header>
+  <main class="page">
+    {% if messages %}
+      <div class="messages">
+        {% for message in messages %}<p class="message {{ message.tags }}">{{ message }}</p>{% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

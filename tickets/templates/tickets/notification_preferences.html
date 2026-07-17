@@ -1,0 +1,17 @@
+{% extends "tickets/base.html" %}
+
+{% block title %}Email preferences - Open Response Center{% endblock %}
+
+{% block content %}
+<section class="form-panel">
+  <h1>Email preferences</h1>
+  <form method="post" class="stack">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="actions">
+      <button class="primary" type="submit">Save preferences</button>
+      <a class="button" href="{% url 'ticket-list' %}">Back to tickets</a>
+    </div>
+  </form>
+</section>
+{% endblock %}
