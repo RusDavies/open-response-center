@@ -4,7 +4,7 @@ Open Response Center is an internal-first support and incident intake app for te
 clear place to receive reports, triage issues, communicate status, and preserve evidence.
 
 It is built as an open-core product: the public repo contains the reusable ticketing and incident
-intake core, while commercial or organization-specific extensions can live separately.
+intake core, while organization-specific extensions can live separately.
 
 ## What It Does
 
@@ -42,8 +42,8 @@ The open-core project includes ticket intake, lifecycle management, comments, at
 workflows, public documentation, tests, development setup, the MIT license, and security guidance.
 
 The public distribution uses neutral `Open Response Center` branding by default. RedShieldKnight may
-be mentioned as the project origin or sponsor in public documentation, but private branding packages
-and organization-specific extensions belong outside the open-core repo.
+be mentioned as the project origin or sponsor in public documentation, but organization-specific
+branding packages and extensions belong outside the open-core repo.
 
 Optional integrations, including a sanitized OpenClaw reference adapter, must not include private
 workspace paths, real incident data, credentials, chat platform IDs, hostnames, or project-management
