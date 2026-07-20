@@ -1,10 +1,14 @@
 {% extends "tickets/base.html" %}
+{% load static %}
 
 {% block title %}Sign in - Open Response Center{% endblock %}
 
 {% block content %}
 <section class="auth-panel">
-  <div class="login-mark" aria-hidden="true">ORC</div>
+  <div class="login-mark" aria-hidden="true">
+    <img src="{% static 'tickets/brand/orc-mascot.png' %}" alt="">
+  </div>
+  <span class="visually-hidden">ORC</span>
   <h1>Sign in</h1>
   <form method="post" class="stack">
     {% csrf_token %}

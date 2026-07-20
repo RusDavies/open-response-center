@@ -22,6 +22,18 @@ body {
   line-height: 1.5;
 }
 
+.visually-hidden {
+  clip: rect(0 0 0 0);
+  border: 0;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
 a {
   color: var(--accent-dark);
   font-weight: 650;
@@ -55,14 +67,19 @@ a:hover {
   align-items: center;
   background: #ffffff;
   border-radius: 6px;
-  color: var(--accent-dark);
   display: inline-flex;
-  font-size: 0.92rem;
-  font-weight: 900;
   height: 42px;
   justify-content: center;
-  letter-spacing: 0;
+  overflow: hidden;
   width: 42px;
+}
+
+.brand-mark img,
+.login-mark img {
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
 }
 
 .topbar nav {
@@ -350,16 +367,13 @@ th {
 
 .login-mark {
   align-items: center;
-  background: var(--accent);
+  background: #ffffff;
   border-radius: 8px;
-  color: #ffffff;
   display: flex;
-  font-size: 1.5rem;
-  font-weight: 900;
   height: 82px;
   justify-content: center;
-  letter-spacing: 0;
   margin: 0 auto 18px;
+  overflow: hidden;
   width: 82px;
 }
 
