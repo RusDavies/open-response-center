@@ -564,6 +564,48 @@ class TicketFlowTests(TestCase):
         self.assertEqual(event.previous_status, TicketStatus.RECEIVED)
         self.assertEqual(event.new_status, TicketStatus.IN_PROGRESS)
 
+    def test_operator_board_groups_tickets_by_lifecycle_status(self):
+        triage_ticket = Ticket.objects.create(
+            title="Needs triage",
+            description="Something is broken.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            impact=ImpactLevel.HIGH,
+        )
+        progress_ticket = Ticket.objects.create(
+            title="Fix in progress",
+            description="Something else is broken.",
+            reporter=self.other_reporter,
+            affected_system=self.system,
+            status=TicketStatus.IN_PROGRESS,
+            operator=self.operator,
+        )
+        client = Client()
+        client.force_login(self.operator)
+
+        response = client.get(reverse("ticket-board"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Operator board")
+        self.assertContains(response, "Received")
+        self.assertContains(response, "In progress")
+        self.assertContains(response, f"#{triage_ticket.pk} Needs triage")
+        self.assertContains(response, f"#{progress_ticket.pk} Fix in progress")
+        columns = response.context["board_columns"]
+        received_column = next(column for column in columns if column["status"] == TicketStatus.RECEIVED)
+        progress_column = next(column for column in columns if column["status"] == TicketStatus.IN_PROGRESS)
+        self.assertEqual(list(received_column["tickets"]), [triage_ticket])
+        self.assertEqual(list(progress_column["tickets"]), [progress_ticket])
+
+    def test_reporter_cannot_view_operator_board(self):
+        client = Client()
+        client.force_login(self.reporter)
+
+        response = client.get(reverse("ticket-board"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response["Location"])
+
     def test_operator_status_update_starts_sla_response_clock(self):
         ticket = Ticket.objects.create(
             title="Needs response tracking",

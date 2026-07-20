@@ -1,0 +1,45 @@
+{% extends "tickets/base.html" %}
+
+{% block title %}Operator board - Open Response Center{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+  <div>
+    <h1>Operator board</h1>
+    <p>Scan ticket ownership, SLA pressure, workflow, and lifecycle status.</p>
+  </div>
+  <a class="button primary" href="{% url 'ticket-create' %}">New ticket</a>
+</section>
+
+<section class="board" aria-label="Ticket lifecycle board">
+  {% for column in board_columns %}
+    <article class="board-column">
+      <header>
+        <h2>{{ column.label }}</h2>
+        <span class="board-count">{{ column.tickets|length }}</span>
+      </header>
+      <div class="board-card-list">
+        {% for ticket in column.tickets %}
+          <a class="board-card" href="{% url 'ticket-detail' ticket.pk %}">
+            <strong>#{{ ticket.pk }} {{ ticket.title }}</strong>
+            <span class="pill sla-{{ ticket.sla_state }}">{{ ticket.sla_state_label }}</span>
+            <dl>
+              <dt>Impact</dt>
+              <dd>{{ ticket.get_impact_display }}</dd>
+              <dt>System</dt>
+              <dd>{{ ticket.affected_system|default:"-" }}</dd>
+              <dt>Dept</dt>
+              <dd>{{ ticket.department|default:"-" }}</dd>
+              <dt>Owner</dt>
+              <dd>{{ ticket.operator|default:"Unassigned" }}</dd>
+            </dl>
+            <span class="board-card-meta">Updated {{ ticket.updated_at|date:"Y-m-d H:i" }}</span>
+          </a>
+        {% empty %}
+          <p class="empty board-empty">No tickets.</p>
+        {% endfor %}
+      </div>
+    </article>
+  {% endfor %}
+</section>
+{% endblock %}

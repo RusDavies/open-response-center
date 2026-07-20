@@ -18,6 +18,7 @@ urlpatterns = [
     path("knowledge-base/", views.knowledge_base_list, name="knowledge-base-list"),
     path("knowledge-base/new/", views.knowledge_base_create, name="knowledge-base-create"),
     path("knowledge-base/<slug:slug>/", views.knowledge_base_detail, name="knowledge-base-detail"),
+    path("operator/board/", views.ticket_board, name="ticket-board"),
     path("tickets/new/", views.ticket_create, name="ticket-create"),
     path("tickets/<int:pk>/", views.ticket_detail, name="ticket-detail"),
     path("tickets/<int:pk>/messages/", views.add_message, name="ticket-add-message"),

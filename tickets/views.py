@@ -62,6 +62,10 @@ def _visible_knowledge_links(ticket: Ticket, user):
     return queryset.filter(article__is_published=True, article__audience=KnowledgeBaseAudience.ALL_INTERNAL)
 
 
+def _is_operator(user):
+    return user.is_staff
+
+
 @login_required
 def ticket_list(request):
     tickets = _visible_tickets(request.user)
@@ -69,6 +73,31 @@ def ticket_list(request):
     if status:
         tickets = tickets.filter(status=status)
     return render(request, "tickets/ticket_list.html", {"tickets": tickets, "status": status})
+
+
+@user_passes_test(_is_operator)
+def ticket_board(request):
+    tickets = list(
+        Ticket.objects.select_related(
+            "affected_system",
+            "department",
+            "reporter",
+            "operator",
+            "workflow_template",
+        ).order_by("status", "-updated_at", "-created_at")
+    )
+    tickets_by_status = {}
+    for ticket in tickets:
+        tickets_by_status.setdefault(ticket.status, []).append(ticket)
+    board_columns = [
+        {
+            "status": status,
+            "label": label,
+            "tickets": tickets_by_status.get(status, []),
+        }
+        for status, label in TicketStatus.choices
+    ]
+    return render(request, "tickets/ticket_board.html", {"board_columns": board_columns})
 
 
 @login_required
@@ -204,10 +233,6 @@ def download_attachment(request, pk: int):
         as_attachment=True,
         filename=attachment.original_name,
     )
-
-
-def _is_operator(user):
-    return user.is_staff
 
 
 @login_required

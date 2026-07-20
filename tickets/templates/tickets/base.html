@@ -18,7 +18,10 @@
         <a href="{% url 'ticket-create' %}">New ticket</a>
         <a href="{% url 'knowledge-base-list' %}">Knowledge base</a>
         <a href="{% url 'notification-preferences' %}">Email preferences</a>
-        {% if user.is_staff %}<a href="{% url 'admin:index' %}">Admin</a>{% endif %}
+        {% if user.is_staff %}
+          <a href="{% url 'ticket-board' %}">Board</a>
+          <a href="{% url 'admin:index' %}">Admin</a>
+        {% endif %}
         <form method="post" action="{% url 'logout' %}">
           {% csrf_token %}
           <button type="submit">Sign out</button>
