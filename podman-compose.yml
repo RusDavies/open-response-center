@@ -13,7 +13,7 @@ services:
       DJANGO_STATIC_ROOT: /app/staticfiles
       OPENCLAW_WORKSPACE_ROOT: /workspace
     ports:
-      - "0.0.0.0:8000:8000"
+      - "${ORC_BIND_HOST:?Set ORC_BIND_HOST to the machine Tailscale IPv4 address}:8000:8000"
     volumes:
       - open-response-center-data:/app/data:U
       - open-response-center-static:/app/staticfiles:U

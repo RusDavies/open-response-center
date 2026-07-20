@@ -59,7 +59,8 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e '.[dev]'
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py seed_demo
-.venv/bin/python manage.py runserver 127.0.0.1:8000
+TAILSCALE_IP="$(tailscale ip -4 | head -n 1)"
+DJANGO_ALLOWED_HOSTS="$TAILSCALE_IP" .venv/bin/python manage.py runserver "$TAILSCALE_IP:8000"
 ```
 
 Demo logins:
@@ -69,10 +70,10 @@ Demo logins:
 
 Local surfaces:
 
-- ticket list: `http://127.0.0.1:8000/`
-- new ticket: `http://127.0.0.1:8000/tickets/new/`
-- knowledge base: `http://127.0.0.1:8000/knowledge-base/`
-- admin: `http://127.0.0.1:8000/admin/`
+- ticket list: `http://<tailscale-ip>:8000/`
+- new ticket: `http://<tailscale-ip>:8000/tickets/new/`
+- knowledge base: `http://<tailscale-ip>:8000/knowledge-base/`
+- admin: `http://<tailscale-ip>:8000/admin/`
 
 ## Podman Deployment
 

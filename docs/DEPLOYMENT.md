@@ -18,13 +18,14 @@ private internal testing, not a public internet service.
 
    Replace the placeholder `DJANGO_SECRET_KEY` in `.env` with the generated value.
 
-2. Set deployment-specific hosts. Include every hostname or IP address users will type into the
-   browser, including the machine's Tailscale IPv4 address and MagicDNS name when testing across
-   the tailnet:
+2. Set the host bind and deployment-specific hostnames. `ORC_BIND_HOST` must be the machine's
+   Tailscale IPv4 address so the service binds to the tailnet interface instead of localhost, LAN,
+   or every interface. Include every hostname or IP address users will type into the browser:
 
    ```env
-   DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost,100.x.y.z,host.tailnet-name.ts.net,open-response-center.example.invalid
-   DJANGO_CSRF_TRUSTED_ORIGINS=https://host.tailnet-name.ts.net,https://open-response-center.example.invalid
+   ORC_BIND_HOST=100.x.y.z
+   DJANGO_ALLOWED_HOSTS=100.x.y.z,host.tailnet-name.ts.net,open-response-center.example.invalid
+   DJANGO_CSRF_TRUSTED_ORIGINS=http://100.x.y.z:8000,https://host.tailnet-name.ts.net,https://open-response-center.example.invalid
    ```
 
 3. Build and start with Podman Compose:
@@ -39,14 +40,13 @@ private internal testing, not a public internet service.
    podman compose -f podman-compose.yml exec web python manage.py seed_demo
    ```
 
-5. Open `http://127.0.0.1:8000/` locally, or `http://<tailscale-ip>:8000/` from another tailnet
-   device.
+5. Open `http://<tailscale-ip>:8000/` from a tailnet device.
 
 The container runs migrations and `collectstatic` before starting Gunicorn. Static files are served by
 WhiteNoise from `DJANGO_STATIC_ROOT`.
-The Compose port mapping binds to `0.0.0.0:8000`, so Podman publishes the app on localhost, LAN, and
-Tailscale IPv4 interfaces; `DJANGO_ALLOWED_HOSTS` still controls which HTTP Host headers Django will
-accept.
+The Compose port mapping binds to `${ORC_BIND_HOST}:8000`, so Podman publishes the app only on the
+configured Tailscale IPv4 interface. `DJANGO_ALLOWED_HOSTS` still controls which HTTP Host headers
+Django will accept.
 
 ## Public Deployment Posture
 
