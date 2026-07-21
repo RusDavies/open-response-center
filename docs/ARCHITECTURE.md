@@ -35,7 +35,7 @@ Current MVP implementation folds incident and engineering links into ticket refe
 them to richer linked models only when synchronization or history requires it.
 
 `OperationalIncident` is the first richer incident-domain model. It keeps the current OpenClaw
-workspace markdown process behind an adapter boundary so RSK can later become the primary incident
+workspace markdown process behind an adapter boundary so the product can later become the primary incident
 system without hard-wiring ticket flows to `incidents/active/*.md`.
 
 ## Integration Boundaries
@@ -46,7 +46,7 @@ system without hard-wiring ticket flows to `incidents/active/*.md`.
 - Operations-agent APIs are authenticated with scoped bearer tokens tied to Django users. Operator-grade
   lifecycle and incident actions require both the relevant API scope and a staff/operator service account.
 - Ticket attachments are copied into OpenClaw incident evidence on promotion so operational incidents retain a stable evidence snapshot.
-- Linked OpenClaw incident file statuses can be imported back into RSK and mapped onto reporter-facing ticket statuses.
+- Linked OpenClaw incident file statuses can be imported back into Open Response Center and mapped onto reporter-facing ticket statuses.
 - Engineering trackers are linked when implementation work needs them, not for every ticket.
 
 ## Attachment Retention
@@ -115,7 +115,7 @@ checklist rows prevent the ticket from moving to closed until an operator marks 
 ## Identity Boundary
 
 Local development keeps Django username/password login. Internal deployment can enable
-`RSK_ENABLE_REMOTE_USER_AUTH=true` to trust identity headers set by a reverse proxy. The app never
+`ORC_ENABLE_REMOTE_USER_AUTH=true` to trust identity headers set by a reverse proxy. The app never
 trusts those headers unless this flag is explicitly enabled, and deployments must ensure the proxy
 strips any client-supplied copies before adding its own.
 
@@ -126,7 +126,7 @@ By default the middleware reads:
 - `HTTP_X_REMOTE_FIRST_NAME` and `HTTP_X_REMOTE_LAST_NAME` for display names
 
 Users are auto-created with unusable passwords. Staff status remains admin-managed unless
-`RSK_REMOTE_USER_STAFF_HEADER` is explicitly configured.
+`ORC_REMOTE_USER_STAFF_HEADER` is explicitly configured.
 
 ## Deployment Surface
 

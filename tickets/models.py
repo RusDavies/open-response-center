@@ -49,7 +49,7 @@ class OperationsAgentToken(models.Model):
     def issue(cls, *, name: str, user: User, scopes: list[str]) -> tuple["OperationsAgentToken", str]:
         prefix = secrets.token_hex(6)
         secret = secrets.token_urlsafe(32)
-        raw_token = f"rsk_agent_{prefix}_{secret}"
+        raw_token = f"orc_agent_{prefix}_{secret}"
         agent_token = cls.objects.create(
             name=name,
             user=user,
@@ -66,7 +66,7 @@ class OperationsAgentToken(models.Model):
     @classmethod
     def prefix_from_raw_token(cls, raw_token: str) -> str:
         parts = raw_token.split("_", 3)
-        if len(parts) != 4 or parts[:2] != ["rsk", "agent"]:
+        if len(parts) != 4 or parts[:2] != ["orc", "agent"]:
             return ""
         return parts[2]
 

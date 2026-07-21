@@ -45,4 +45,4 @@
 - Local filesystem attachments first, or object storage from day one?
 - Which identity source should authorize internal users?
 - Should chat or webhook notifications be supported in addition to email?
-- Should the long-term incident backend be RSK-native, the workspace `incidents/` tree, or both during a transition period?
+- Should the long-term incident backend be Open Response Center-native, the workspace `incidents/` tree, or both during a transition period?

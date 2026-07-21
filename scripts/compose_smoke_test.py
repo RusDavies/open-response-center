@@ -71,7 +71,7 @@ class SmokeHttpClient:
         self.opener = build_opener(HTTPCookieProcessor(CookieJar()))
 
     def get(self, path: str) -> tuple[str, str]:
-        request = Request(urljoin(self.base_url, path), headers={"User-Agent": "rsk-compose-smoke/1"})
+        request = Request(urljoin(self.base_url, path), headers={"User-Agent": "orc-compose-smoke/1"})
         with self.opener.open(request, timeout=self.timeout) as response:
             return response.geturl(), response.read().decode("utf-8", errors="replace")
 
@@ -81,7 +81,7 @@ class SmokeHttpClient:
             headers={
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
-                "User-Agent": "rsk-compose-smoke/1",
+                "User-Agent": "orc-compose-smoke/1",
             },
         )
         with self.opener.open(request, timeout=self.timeout) as response:
@@ -94,7 +94,7 @@ class SmokeHttpClient:
             data=body,
             headers={
                 "Content-Type": "application/x-www-form-urlencoded",
-                "User-Agent": "rsk-compose-smoke/1",
+                "User-Agent": "orc-compose-smoke/1",
             },
         )
         with self.opener.open(request, timeout=self.timeout) as response:
@@ -108,7 +108,7 @@ class SmokeHttpClient:
                 "Accept": "application/json",
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
-                "User-Agent": "rsk-compose-smoke/1",
+                "User-Agent": "orc-compose-smoke/1",
             },
         )
         with self.opener.open(request, timeout=self.timeout) as response:
@@ -124,7 +124,7 @@ class SmokeHttpClient:
         content: bytes,
         content_type: str,
     ) -> tuple[str, str]:
-        boundary = f"----rsk-smoke-{uuid.uuid4().hex}"
+        boundary = f"----orc-smoke-{uuid.uuid4().hex}"
         body = self._multipart_body(
             boundary=boundary,
             fields=fields,
@@ -138,7 +138,7 @@ class SmokeHttpClient:
             data=body,
             headers={
                 "Content-Type": f"multipart/form-data; boundary={boundary}",
-                "User-Agent": "rsk-compose-smoke/1",
+                "User-Agent": "orc-compose-smoke/1",
             },
         )
         with self.opener.open(request, timeout=self.timeout) as response:
@@ -345,7 +345,7 @@ def create_api_token(args: argparse.Namespace) -> tuple[str, str]:
     )
     for line in reversed(result.stdout.splitlines()):
         candidate = line.strip()
-        if candidate.startswith("rsk_agent_"):
+        if candidate.startswith("orc_agent_"):
             print(f"Created temporary operations-agent API token {token_name}.")
             return token_name, candidate
     raise SmokeError("Token creation command did not print an operations-agent token.")

@@ -103,10 +103,10 @@ with a bind mount to the workspace root that should receive `incidents/` updates
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USE_TLS`, `SMTP_USER`, `SMTP_PASSWORD`: SMTP settings. If
   `SMTP_HOST` is unset, Django uses the console email backend.
 - `GUNICORN_WORKERS`: Gunicorn worker count.
-- `RSK_ENABLE_REMOTE_USER_AUTH`: set `true` only behind a trusted identity-aware reverse proxy.
-- `RSK_REMOTE_USER_HEADER`, `RSK_REMOTE_USER_EMAIL_HEADER`, `RSK_REMOTE_USER_FIRST_NAME_HEADER`,
-  `RSK_REMOTE_USER_LAST_NAME_HEADER`: WSGI header keys populated by the proxy.
-- `RSK_REMOTE_USER_STAFF_HEADER`: optional staff flag header. Leave blank unless the proxy has a
+- `ORC_ENABLE_REMOTE_USER_AUTH`: set `true` only behind a trusted identity-aware reverse proxy.
+- `ORC_REMOTE_USER_HEADER`, `ORC_REMOTE_USER_EMAIL_HEADER`, `ORC_REMOTE_USER_FIRST_NAME_HEADER`,
+  `ORC_REMOTE_USER_LAST_NAME_HEADER`: WSGI header keys populated by the proxy.
+- `ORC_REMOTE_USER_STAFF_HEADER`: optional staff flag header. Leave blank unless the proxy has a
   reliable internal operator/admin group signal.
 
 When remote-user auth is enabled, the reverse proxy must strip client-supplied identity headers before

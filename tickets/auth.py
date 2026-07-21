@@ -9,12 +9,12 @@ class TrustedRemoteUserMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if getattr(settings, "RSK_ENABLE_REMOTE_USER_AUTH", False):
+        if getattr(settings, "ORC_ENABLE_REMOTE_USER_AUTH", False):
             self.authenticate_remote_user(request)
         return self.get_response(request)
 
     def authenticate_remote_user(self, request) -> None:
-        username = self.header_value(request, settings.RSK_REMOTE_USER_HEADER)
+        username = self.header_value(request, settings.ORC_REMOTE_USER_HEADER)
         if not username:
             return
 
@@ -31,22 +31,22 @@ class TrustedRemoteUserMiddleware:
             user.set_unusable_password()
             changed_fields.append("password")
 
-        email = self.header_value(request, settings.RSK_REMOTE_USER_EMAIL_HEADER)
+        email = self.header_value(request, settings.ORC_REMOTE_USER_EMAIL_HEADER)
         if email and user.email != email:
             user.email = email
             changed_fields.append("email")
 
-        first_name = self.header_value(request, settings.RSK_REMOTE_USER_FIRST_NAME_HEADER)
+        first_name = self.header_value(request, settings.ORC_REMOTE_USER_FIRST_NAME_HEADER)
         if first_name and user.first_name != first_name:
             user.first_name = first_name
             changed_fields.append("first_name")
 
-        last_name = self.header_value(request, settings.RSK_REMOTE_USER_LAST_NAME_HEADER)
+        last_name = self.header_value(request, settings.ORC_REMOTE_USER_LAST_NAME_HEADER)
         if last_name and user.last_name != last_name:
             user.last_name = last_name
             changed_fields.append("last_name")
 
-        staff_header = settings.RSK_REMOTE_USER_STAFF_HEADER
+        staff_header = settings.ORC_REMOTE_USER_STAFF_HEADER
         if staff_header:
             is_staff = self.header_value(request, staff_header).lower() in {"1", "true", "yes", "on"}
             if user.is_staff != is_staff:

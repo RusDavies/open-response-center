@@ -361,7 +361,7 @@ class TicketFlowTests(TestCase):
         User = get_user_model()
         client = Client()
 
-        with override_settings(RSK_ENABLE_REMOTE_USER_AUTH=True):
+        with override_settings(ORC_ENABLE_REMOTE_USER_AUTH=True):
             response = client.get(
                 reverse("ticket-list"),
                 HTTP_X_REMOTE_USER="internal-reporter",
@@ -1293,7 +1293,7 @@ class TicketFlowTests(TestCase):
         token = OperationsAgentToken.objects.get(name="test-agent")
         text = output.getvalue()
         raw_token = text.strip().splitlines()[-1]
-        self.assertTrue(raw_token.startswith("rsk_agent_"))
+        self.assertTrue(raw_token.startswith("orc_agent_"))
         self.assertEqual(token.prefix, OperationsAgentToken.prefix_from_raw_token(raw_token))
         self.assertTrue(token.token_matches(raw_token))
         self.assertNotIn(raw_token, token.token_hash)

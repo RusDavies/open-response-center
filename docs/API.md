@@ -17,7 +17,7 @@ only a SHA-256 hash and a lookup prefix.
 Send the token on every request:
 
 ```http
-Authorization: Bearer rsk_agent_<prefix>_<secret>
+Authorization: Bearer orc_agent_<prefix>_<secret>
 Content-Type: application/json
 Accept: application/json
 ```
