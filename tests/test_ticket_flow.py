@@ -597,6 +597,111 @@ class TicketFlowTests(TestCase):
         self.assertEqual(list(received_column["tickets"]), [triage_ticket])
         self.assertEqual(list(progress_column["tickets"]), [progress_ticket])
 
+    def test_operator_board_defaults_to_responsible_department_queue(self):
+        security_group = Group.objects.create(name="security-operators")
+        self.operator.groups.add(security_group)
+        security = Department.objects.create(name="Security", slug="security")
+        security.operator_groups.add(security_group)
+        hardware_group = Group.objects.create(name="hardware-operators")
+        hardware = Department.objects.create(name="Hardware", slug="hardware")
+        hardware.operator_groups.add(hardware_group)
+        open_queue = Department.objects.create(name="General", slug="general")
+        owned_ticket = Ticket.objects.create(
+            title="Security queue ticket",
+            description="Security owns this.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            department=security,
+        )
+        hidden_ticket = Ticket.objects.create(
+            title="Hardware queue ticket",
+            description="Hardware owns this.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            department=hardware,
+        )
+        open_ticket = Ticket.objects.create(
+            title="General queue ticket",
+            description="No operator group owns this.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            department=open_queue,
+        )
+        assigned_ticket = Ticket.objects.create(
+            title="Assigned hardware ticket",
+            description="Assigned tickets stay in the operator queue.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            department=hardware,
+            operator=self.operator,
+        )
+        unassigned_ticket = Ticket.objects.create(
+            title="Unassigned department ticket",
+            description="No department yet.",
+            reporter=self.reporter,
+            affected_system=self.system,
+        )
+        client = Client()
+        client.force_login(self.operator)
+
+        response = client.get(reverse("ticket-board"))
+
+        self.assertContains(response, f"#{owned_ticket.pk} Security queue ticket")
+        self.assertContains(response, f"#{open_ticket.pk} General queue ticket")
+        self.assertContains(response, f"#{assigned_ticket.pk} Assigned hardware ticket")
+        self.assertContains(response, f"#{unassigned_ticket.pk} Unassigned department ticket")
+        self.assertNotContains(response, f"#{hidden_ticket.pk} Hardware queue ticket")
+        department_slugs = {department.slug for department in response.context["departments"]}
+        self.assertEqual(department_slugs, {"general", "hardware", "security"})
+
+    def test_operator_ticket_list_can_filter_by_department(self):
+        security_group = Group.objects.create(name="security-operators")
+        self.operator.groups.add(security_group)
+        security = Department.objects.create(name="Security", slug="security")
+        security.operator_groups.add(security_group)
+        general = Department.objects.create(name="General", slug="general")
+        security_ticket = Ticket.objects.create(
+            title="Security queue ticket",
+            description="Security owns this.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            department=security,
+        )
+        Ticket.objects.create(
+            title="General queue ticket",
+            description="No operator group owns this.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            department=general,
+        )
+        client = Client()
+        client.force_login(self.operator)
+
+        response = client.get(reverse("ticket-list"), {"department": "security"})
+
+        self.assertContains(response, "Security queue ticket")
+        self.assertNotContains(response, "General queue ticket")
+        self.assertEqual(list(response.context["tickets"]), [security_ticket])
+
+    def test_admin_board_can_see_all_department_queues(self):
+        admin = get_user_model().objects.create_superuser("admin", password="admin")
+        security_group = Group.objects.create(name="security-operators")
+        security = Department.objects.create(name="Security", slug="security")
+        security.operator_groups.add(security_group)
+        hidden_ticket = Ticket.objects.create(
+            title="Security queue ticket",
+            description="Security owns this.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            department=security,
+        )
+        client = Client()
+        client.force_login(admin)
+
+        response = client.get(reverse("ticket-board"))
+
+        self.assertContains(response, f"#{hidden_ticket.pk} Security queue ticket")
+
     def test_reporter_cannot_view_operator_board(self):
         client = Client()
         client.force_login(self.reporter)

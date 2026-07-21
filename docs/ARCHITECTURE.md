@@ -94,6 +94,11 @@ Generated checklist rows are deliberately copied onto the ticket instead of read
 That preserves the operator record even if a department later edits its workflow template. Blocking
 checklist rows prevent the ticket from moving to closed until an operator marks them complete.
 
+Operator queue views default to the departments owned by the operator's groups, departments with no
+assigned operator groups, unassigned tickets, and tickets already assigned to that operator. Admin
+users keep full queue visibility. Operators can narrow the board and ticket list to a specific
+department without changing direct ticket visibility rules.
+
 ## Security Notes
 
 - Never expose attachments publicly by default.

@@ -7,6 +7,7 @@
 - Reports include title, affected system, impact, summary of issue, actions to repeat, expected outcome, actual outcome, optional additional context, and optional evidence attachments.
 - Systems can route reports to a default department and workflow template.
 - Department workflow templates can generate operator checklist items for each ticket.
+- Operator ticket queues can be filtered by department responsibility and preserve admin-wide visibility.
 - Blocking workflow checklist items must be completed before an operator can close the ticket.
 - Users can view their submitted reports and current status.
 - Users and operators can participate in a threaded discussion per report.

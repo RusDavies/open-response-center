@@ -19,6 +19,7 @@ from .forms import (
 from .incident_adapters import OpenClawWorkspaceIncidentAdapter
 from .models import (
     Attachment,
+    Department,
     KnowledgeBaseArticle,
     KnowledgeBaseAudience,
     NotificationPreference,
@@ -34,8 +35,49 @@ from .notifications import notify_ticket_watchers
 def _visible_tickets(user):
     queryset = Ticket.objects.select_related("affected_system", "reporter", "operator")
     if user.is_staff:
-        return queryset.all()
+        return _operator_queue_tickets(user, queryset=queryset)
     return queryset.filter(reporter=user)
+
+
+def _operator_responsibility_filter(user) -> Q:
+    if user.is_superuser:
+        return Q()
+    return (
+        Q(operator=user)
+        | Q(department__isnull=True)
+        | Q(department__operator_groups__isnull=True)
+        | Q(department__operator_groups__user=user)
+    )
+
+
+def _operator_queue_tickets(user, *, queryset=None):
+    queryset = queryset or Ticket.objects.select_related(
+        "affected_system",
+        "department",
+        "reporter",
+        "operator",
+        "workflow_template",
+    )
+    return queryset.filter(_operator_responsibility_filter(user)).distinct()
+
+
+def _operator_filter_departments(user):
+    queryset = Department.objects.filter(is_active=True)
+    if user.is_superuser:
+        return queryset
+    return (
+        queryset.filter(Q(operator_groups__isnull=True) | Q(operator_groups__user=user) | Q(tickets__operator=user))
+        .distinct()
+        .order_by("name")
+    )
+
+
+def _filter_department(queryset, department_slug: str):
+    if department_slug == "unassigned":
+        return queryset.filter(department__isnull=True)
+    if department_slug:
+        return queryset.filter(department__slug=department_slug)
+    return queryset
 
 
 def _get_visible_ticket(user, pk: int) -> Ticket:
@@ -72,20 +114,34 @@ def ticket_list(request):
     status = request.GET.get("status")
     if status:
         tickets = tickets.filter(status=status)
-    return render(request, "tickets/ticket_list.html", {"tickets": tickets, "status": status})
+    department = request.GET.get("department", "").strip() if request.user.is_staff else ""
+    tickets = _filter_department(tickets, department)
+    return render(
+        request,
+        "tickets/ticket_list.html",
+        {
+            "tickets": tickets,
+            "status": status,
+            "department": department,
+            "departments": _operator_filter_departments(request.user) if request.user.is_staff else [],
+        },
+    )
 
 
 @user_passes_test(_is_operator)
 def ticket_board(request):
-    tickets = list(
-        Ticket.objects.select_related(
+    department = request.GET.get("department", "").strip()
+    queryset = _operator_queue_tickets(
+        request.user,
+        queryset=Ticket.objects.select_related(
             "affected_system",
             "department",
             "reporter",
             "operator",
             "workflow_template",
-        ).order_by("status", "-updated_at", "-created_at")
+        ),
     )
+    tickets = list(_filter_department(queryset, department).order_by("status", "-updated_at", "-created_at"))
     tickets_by_status = {}
     for ticket in tickets:
         tickets_by_status.setdefault(ticket.status, []).append(ticket)
@@ -97,7 +153,15 @@ def ticket_board(request):
         }
         for status, label in TicketStatus.choices
     ]
-    return render(request, "tickets/ticket_board.html", {"board_columns": board_columns})
+    return render(
+        request,
+        "tickets/ticket_board.html",
+        {
+            "board_columns": board_columns,
+            "department": department,
+            "departments": _operator_filter_departments(request.user),
+        },
+    )
 
 
 @login_required

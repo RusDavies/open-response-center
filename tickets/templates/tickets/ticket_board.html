@@ -11,6 +11,21 @@
   <a class="button primary" href="{% url 'ticket-create' %}">New ticket</a>
 </section>
 
+<form class="filter-bar" method="get">
+  <label for="department-filter">Department</label>
+  <select id="department-filter" name="department">
+    <option value="">My queue</option>
+    <option value="unassigned"{% if department == "unassigned" %} selected{% endif %}>Unassigned</option>
+    {% for option in departments %}
+      <option value="{{ option.slug }}"{% if department == option.slug %} selected{% endif %}>{{ option.name }}</option>
+    {% endfor %}
+  </select>
+  <button class="button" type="submit">Filter</button>
+  {% if department %}
+    <a class="button" href="{% url 'ticket-board' %}">Clear</a>
+  {% endif %}
+</form>
+
 <section class="board" aria-label="Ticket lifecycle board">
   {% for column in board_columns %}
     <article class="board-column">

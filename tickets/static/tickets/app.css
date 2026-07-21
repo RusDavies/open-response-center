@@ -183,6 +183,27 @@ button,
   overflow-x: auto;
 }
 
+.filter-bar {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.filter-bar label {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 5px;
+  text-transform: uppercase;
+}
+
+.filter-bar select {
+  min-width: 220px;
+}
+
 .board {
   display: grid;
   gap: 14px;
