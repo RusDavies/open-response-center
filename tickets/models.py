@@ -26,6 +26,8 @@ class OperationsAgentScope(models.TextChoices):
     TICKETS_READ = "tickets:read", "Read visible tickets"
     TICKETS_MESSAGE = "tickets:message", "Add ticket messages"
     TICKETS_UPDATE = "tickets:update", "Update ticket lifecycle fields"
+    CASES_CREATE = "cases:create", "Create or upsert cases"
+    CASES_READ = "cases:read", "Read visible cases"
     INCIDENTS_PROMOTE = "incidents:promote", "Promote tickets to operational incidents"
 
 
@@ -740,6 +742,35 @@ class OperationalIncident(models.Model):
 
     def __str__(self) -> str:
         return f"{self.reference} ({self.get_backend_display()})"
+
+
+class ExternalReference(models.Model):
+    provider = models.SlugField(max_length=80)
+    external_id = models.CharField(max_length=240)
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name="external_references")
+    operational_incident = models.ForeignKey(
+        OperationalIncident,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="external_references",
+    )
+    metadata = models.JSONField(blank=True, default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["provider", "external_id"]
+        constraints = [
+            models.UniqueConstraint(fields=["provider", "external_id"], name="unique_external_reference"),
+        ]
+        indexes = [
+            models.Index(fields=["provider", "external_id"]),
+            models.Index(fields=["ticket", "provider"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.provider}:{self.external_id}"
 
 
 class TicketWorkflowChecklistItem(models.Model):

@@ -4,6 +4,7 @@ from .models import (
     Attachment,
     Department,
     DepartmentIntakeField,
+    ExternalReference,
     KnowledgeBaseArticle,
     LifecycleEvent,
     NotificationPreference,
@@ -62,6 +63,12 @@ class OperationalIncidentInline(admin.TabularInline):
     can_delete = False
 
 
+class ExternalReferenceInline(admin.TabularInline):
+    model = ExternalReference
+    extra = 0
+    readonly_fields = ["created_at", "updated_at"]
+
+
 class TicketKnowledgeBaseLinkInline(admin.TabularInline):
     model = TicketKnowledgeBaseLink
     extra = 0
@@ -106,6 +113,7 @@ class TicketAdmin(admin.ModelAdmin):
         TicketMessageInline,
         AttachmentInline,
         TicketWorkflowChecklistItemInline,
+        ExternalReferenceInline,
         TicketKnowledgeBaseLinkInline,
         OperationalIncidentInline,
         LifecycleEventInline,
@@ -207,6 +215,15 @@ class OperationalIncidentAdmin(admin.ModelAdmin):
     list_display = ["reference", "backend", "ticket", "status", "p_level", "risk", "exposure", "created_by", "created_at"]
     list_filter = ["backend", "status", "p_level", "risk", "exposure", "created_at"]
     search_fields = ["reference", "title", "ticket__title", "path"]
+    readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(ExternalReference)
+class ExternalReferenceAdmin(admin.ModelAdmin):
+    list_display = ["provider", "external_id", "ticket", "operational_incident", "updated_at"]
+    list_filter = ["provider", "created_at", "updated_at"]
+    search_fields = ["provider", "external_id", "ticket__title", "operational_incident__reference"]
+    autocomplete_fields = ["ticket", "operational_incident"]
     readonly_fields = ["created_at", "updated_at"]
 
 

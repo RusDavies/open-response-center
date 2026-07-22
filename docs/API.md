@@ -28,11 +28,82 @@ Available scopes:
 - `tickets:read`
 - `tickets:message`
 - `tickets:update`
+- `cases:create`
+- `cases:read`
 - `incidents:promote`
 
 Lifecycle updates and incident promotion also require the token's Django user to be staff/operator.
 
 ## Endpoints
+
+### Create or Upsert Case
+
+`POST /api/v1/cases/` requires `cases:create`.
+
+This is the preferred integration surface for automation that has its own event or case identifier.
+`external_reference.provider` and `external_reference.external_id` are idempotency keys: repeat them
+to update the same Open Response Center case instead of creating duplicates.
+
+```json
+{
+  "external_reference": {
+    "provider": "openclaw-gateway-watchdog",
+    "external_id": "gateway-health-152956",
+    "metadata": {
+      "gateway": "primary",
+      "check": "heartbeat"
+    }
+  },
+  "title": "Gateway heartbeat failed",
+  "affected_system": "openclaw-runtime",
+  "impact": "high",
+  "status": "in_progress",
+  "issue_summary": "Gateway watchdog missed two heartbeats.",
+  "reproduction_steps": "1. Poll gateway health. 2. Observe missed heartbeat.",
+  "expected_outcome": "Gateway responds before the watchdog deadline.",
+  "actual_outcome": "Gateway did not respond before the deadline.",
+  "additional_context": "Raised by the watchdog handoff API.",
+  "note": "Watchdog handoff moved the case into investigation."
+}
+```
+
+The first request returns `201` with `"created": true`. Later requests with the same provider/external
+ID return `200` with `"created": false` and update the existing case fields supplied in the payload.
+Supplying `status` requires a staff/operator service account and records the normal lifecycle event.
+
+### Read Case
+
+`GET /api/v1/cases/<id>/` requires `cases:read`.
+
+The response contains the serialized ticket plus linked external references:
+
+```json
+{
+  "case": {
+    "ticket": {
+      "id": 42,
+      "status": "in_progress",
+      "sla": {}
+    },
+    "external_references": [
+      {
+        "provider": "openclaw-gateway-watchdog",
+        "external_id": "gateway-health-152956",
+        "metadata": {
+          "gateway": "primary"
+        }
+      }
+    ]
+  }
+}
+```
+
+### Read Case by External Reference
+
+`GET /api/v1/cases/external/<provider>/<external_id>/` requires `cases:read`.
+
+Use this when a gateway/watchdog worker only has its own correlation ID and needs the current Open
+Response Center lifecycle state.
 
 ### Create Ticket
 

@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 from django.http import HttpRequest, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
@@ -15,12 +16,14 @@ from .forms import IncidentClassificationForm, MessageForm, OperatorUpdateForm, 
 from .incident_adapters import OpenClawWorkspaceIncidentAdapter
 from .models import (
     Attachment,
+    ExternalReference,
     OperationsAgentScope,
     OperationsAgentToken,
     OperationalIncident,
     System,
     Ticket,
     TicketMessage,
+    TicketStatus,
 )
 from .notifications import notify_ticket_watchers
 
@@ -183,6 +186,28 @@ def _serialize_incident(incident: OperationalIncident) -> dict[str, Any]:
     }
 
 
+def _serialize_external_reference(reference: ExternalReference) -> dict[str, Any]:
+    return {
+        "id": reference.pk,
+        "provider": reference.provider,
+        "external_id": reference.external_id,
+        "ticket": reference.ticket_id,
+        "operational_incident": reference.operational_incident_id,
+        "metadata": reference.metadata,
+        "created_at": reference.created_at.isoformat(),
+        "updated_at": reference.updated_at.isoformat(),
+    }
+
+
+def _serialize_case(ticket: Ticket) -> dict[str, Any]:
+    return {
+        "ticket": _serialize_ticket(ticket),
+        "external_references": [
+            _serialize_external_reference(reference) for reference in ticket.external_references.all()
+        ],
+    }
+
+
 def _get_api_ticket(agent_token: OperationsAgentToken, pk: int) -> Ticket:
     ticket = get_object_or_404(
         Ticket.objects.select_related(
@@ -197,6 +222,10 @@ def _get_api_ticket(agent_token: OperationsAgentToken, pk: int) -> Ticket:
     if not ticket.can_be_viewed_by(agent_token.user):
         raise ApiError("Ticket not found.", status=404)
     return ticket
+
+
+def _get_api_case(agent_token: OperationsAgentToken, pk: int) -> Ticket:
+    return _get_api_ticket(agent_token, pk)
 
 
 def _api_view(scope: str):
@@ -224,6 +253,89 @@ def _ticket_create_data(payload: dict[str, Any]) -> dict[str, Any]:
         except System.DoesNotExist as exc:
             raise ApiError("Unknown affected_system slug.", errors={"affected_system": ["Unknown system."]}) from exc
     return data
+
+
+def _external_reference_data(payload: dict[str, Any]) -> dict[str, Any]:
+    reference = payload.get("external_reference")
+    if not isinstance(reference, dict):
+        raise ApiError("external_reference is required.", errors={"external_reference": ["This field is required."]})
+    provider = str(reference.get("provider", "")).strip()
+    external_id = str(reference.get("external_id", "")).strip()
+    metadata = reference.get("metadata", {})
+    if not provider:
+        raise ApiError("external_reference.provider is required.", errors={"external_reference.provider": ["Required."]})
+    if slugify(provider) != provider:
+        raise ApiError(
+            "external_reference.provider must be a slug.",
+            errors={"external_reference.provider": ["Use lowercase letters, numbers, underscores, or hyphens."]},
+        )
+    if not external_id:
+        raise ApiError(
+            "external_reference.external_id is required.",
+            errors={"external_reference.external_id": ["Required."]},
+        )
+    if not isinstance(metadata, dict):
+        raise ApiError(
+            "external_reference.metadata must be an object.",
+            errors={"external_reference.metadata": ["Must be an object."]},
+        )
+    return {"provider": provider, "external_id": external_id, "metadata": metadata}
+
+
+def _update_ticket_from_case_payload(ticket: Ticket, payload: dict[str, Any]) -> list[str]:
+    mutable_fields = [
+        "title",
+        "impact",
+        "issue_summary",
+        "reproduction_steps",
+        "expected_outcome",
+        "actual_outcome",
+        "additional_context",
+        "incident_reference",
+        "engineering_reference",
+    ]
+    update_fields = []
+    for field in mutable_fields:
+        if field in payload and getattr(ticket, field) != payload[field]:
+            setattr(ticket, field, payload[field])
+            update_fields.append(field)
+    if "affected_system" in payload:
+        affected_system = payload["affected_system"]
+        if affected_system == "" or affected_system is None:
+            system = None
+        elif str(affected_system).isdigit():
+            system = System.visible_to(ticket.reporter).filter(pk=int(affected_system)).first()
+        else:
+            system = System.visible_to(ticket.reporter).filter(slug=str(affected_system)).first()
+        if affected_system != "" and affected_system is not None and not system:
+            raise ApiError("Unknown affected_system.", errors={"affected_system": ["Unknown or hidden system."]})
+        if ticket.affected_system_id != (system.pk if system else None):
+            ticket.affected_system = system
+            update_fields.append("affected_system")
+    return update_fields
+
+
+def _apply_case_status_payload(ticket: Ticket, payload: dict[str, Any], agent_token: OperationsAgentToken) -> bool:
+    if "status" not in payload:
+        return False
+    new_status = str(payload.get("status", "")).strip()
+    valid_statuses = {choice[0] for choice in TicketStatus.choices}
+    if new_status not in valid_statuses:
+        raise ApiError("Unsupported lifecycle status.", errors={"status": ["Unsupported lifecycle status."]})
+    if not agent_token.user.is_staff:
+        raise ApiError("Status updates require a staff/operator service account.", status=403)
+    if new_status == ticket.status:
+        return False
+    note = str(payload.get("note", "")).strip()
+    ticket.transition_to(status=new_status, actor=agent_token.user, note=note)
+    notify_ticket_watchers(
+        ticket,
+        f"Open Response Center ticket #{ticket.pk} moved to {ticket.get_status_display()}",
+        note or f"Status changed from the case API to {new_status}.",
+        event="status",
+        exclude_user_id=agent_token.user.id,
+    )
+    return True
 
 
 def _operator_update_data(payload: dict[str, Any], ticket: Ticket) -> dict[str, Any]:
@@ -257,6 +369,77 @@ def api_ticket_create(request: HttpRequest, agent_token: OperationsAgentToken) -
     ticket.generate_workflow_checklist()
     TicketMessage.objects.create(ticket=ticket, author=agent_token.user, body=ticket.description)
     return JsonResponse({"ticket": _serialize_ticket(ticket)}, status=201)
+
+
+@require_http_methods(["POST"])
+@_api_view(OperationsAgentScope.CASES_CREATE)
+def api_case_upsert(request: HttpRequest, agent_token: OperationsAgentToken) -> JsonResponse:
+    payload = _parse_json(request)
+    reference_data = _external_reference_data(payload)
+    reference = (
+        ExternalReference.objects.select_related("ticket")
+        .filter(provider=reference_data["provider"], external_id=reference_data["external_id"])
+        .first()
+    )
+    created = reference is None
+    if reference:
+        ticket = _get_api_case(agent_token, reference.ticket_id)
+        update_fields = _update_ticket_from_case_payload(ticket, payload)
+        if update_fields:
+            ticket.save()
+        status_changed = _apply_case_status_payload(ticket, payload, agent_token)
+        if reference.metadata != reference_data["metadata"]:
+            reference.metadata = reference_data["metadata"]
+            reference.save(update_fields=["metadata", "updated_at"])
+        if status_changed:
+            ticket.refresh_from_db()
+    else:
+        form = TicketCreateForm(_ticket_create_data(payload), user=agent_token.user)
+        if not form.is_valid():
+            raise ApiError("Case payload is invalid.", errors=_field_errors(form))
+        ticket = form.save(commit=False)
+        ticket.reporter = agent_token.user
+        ticket.save()
+        ticket.generate_workflow_checklist()
+        TicketMessage.objects.create(ticket=ticket, author=agent_token.user, body=ticket.description)
+        reference = ExternalReference.objects.create(ticket=ticket, **reference_data)
+        _apply_case_status_payload(ticket, payload, agent_token)
+
+    return JsonResponse(
+        {
+            "created": created,
+            "case": _serialize_case(ticket),
+            "external_reference": _serialize_external_reference(reference),
+        },
+        status=201 if created else 200,
+    )
+
+
+@require_http_methods(["GET"])
+@_api_view(OperationsAgentScope.CASES_READ)
+def api_case_detail(request: HttpRequest, agent_token: OperationsAgentToken, pk: int) -> JsonResponse:
+    ticket = _get_api_case(agent_token, pk)
+    return JsonResponse({"case": _serialize_case(ticket)})
+
+
+@require_http_methods(["GET"])
+@_api_view(OperationsAgentScope.CASES_READ)
+def api_case_external_detail(
+    request: HttpRequest,
+    agent_token: OperationsAgentToken,
+    provider: str,
+    external_id: str,
+) -> JsonResponse:
+    reference = ExternalReference.objects.filter(provider=provider, external_id=external_id).first()
+    if not reference:
+        raise ApiError("Case not found.", status=404)
+    ticket = _get_api_case(agent_token, reference.ticket_id)
+    return JsonResponse(
+        {
+            "case": _serialize_case(ticket),
+            "external_reference": _serialize_external_reference(reference),
+        }
+    )
 
 
 @require_http_methods(["GET"])
