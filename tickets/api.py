@@ -4,18 +4,19 @@ import json
 from typing import Any, Callable
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.http import HttpRequest, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from .forms import IncidentClassificationForm, MessageForm, OperatorUpdateForm, TicketCreateForm
-from .incident_adapters import OpenClawWorkspaceIncidentAdapter
 from .models import (
     Attachment,
+    CaseEvent,
+    CaseEventSeverity,
     ExternalReference,
     OperationsAgentScope,
     OperationsAgentToken,
@@ -25,7 +26,15 @@ from .models import (
     TicketMessage,
     TicketStatus,
 )
-from .notifications import notify_ticket_watchers
+from .services import (
+    TicketOperationError,
+    add_ticket_message,
+    create_operational_incident_from_ticket,
+    create_ticket_from_form,
+    record_case_event,
+    transition_ticket_status,
+    update_operator_fields_from_form,
+)
 
 
 class ApiError(ValueError):
@@ -199,11 +208,48 @@ def _serialize_external_reference(reference: ExternalReference) -> dict[str, Any
     }
 
 
+def _serialize_case_event(event: CaseEvent) -> dict[str, Any]:
+    return {
+        "id": event.pk,
+        "ticket": event.ticket_id,
+        "external_reference": event.external_reference_id,
+        "actor": event.actor.get_username() if event.actor else None,
+        "source": event.source,
+        "event_type": event.event_type,
+        "severity": event.severity,
+        "summary": event.summary,
+        "metadata": event.metadata,
+        "occurred_at": event.occurred_at.isoformat() if event.occurred_at else None,
+        "created_at": event.created_at.isoformat(),
+    }
+
+
+def _serialize_attachments(ticket: Ticket) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": attachment.pk,
+            "original_name": attachment.original_name,
+            "size_bytes": attachment.size_bytes,
+            "created_at": attachment.created_at.isoformat(),
+        }
+        for attachment in Attachment.objects.filter(ticket=ticket)
+    ]
+
+
 def _serialize_case(ticket: Ticket) -> dict[str, Any]:
     return {
         "ticket": _serialize_ticket(ticket),
+        "messages": [_serialize_message(message) for message in ticket.messages.select_related("author")],
+        "attachments": _serialize_attachments(ticket),
+        "operational_incidents": [
+            _serialize_incident(incident) for incident in ticket.operational_incidents.select_related("created_by")
+        ],
         "external_references": [
             _serialize_external_reference(reference) for reference in ticket.external_references.all()
+        ],
+        "case_events": [
+            _serialize_case_event(event)
+            for event in ticket.case_events.select_related("actor", "external_reference").all()
         ],
     }
 
@@ -216,7 +262,13 @@ def _get_api_ticket(agent_token: OperationsAgentToken, pk: int) -> Ticket:
             "workflow_template",
             "reporter",
             "operator",
-        ).prefetch_related("operational_incidents", "workflow_items__completed_by"),
+        ).prefetch_related(
+            "external_references",
+            "operational_incidents",
+            "workflow_items__completed_by",
+            "case_events__actor",
+            "case_events__external_reference",
+        ),
         pk=pk,
     )
     if not ticket.can_be_viewed_by(agent_token.user):
@@ -327,15 +379,47 @@ def _apply_case_status_payload(ticket: Ticket, payload: dict[str, Any], agent_to
     if new_status == ticket.status:
         return False
     note = str(payload.get("note", "")).strip()
-    ticket.transition_to(status=new_status, actor=agent_token.user, note=note)
-    notify_ticket_watchers(
-        ticket,
-        f"Open Response Center ticket #{ticket.pk} moved to {ticket.get_status_display()}",
-        note or f"Status changed from the case API to {new_status}.",
-        event="status",
-        exclude_user_id=agent_token.user.id,
-    )
+    try:
+        transition_ticket_status(ticket, status=new_status, actor=agent_token.user, note=note)
+    except TicketOperationError as exc:
+        raise ApiError(str(exc)) from exc
     return True
+
+
+def _case_event_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    event_type = str(payload.get("event_type", "")).strip()
+    source = str(payload.get("source", "open-response-center")).strip()
+    summary = str(payload.get("summary", "")).strip()
+    severity = str(payload.get("severity", CaseEventSeverity.INFO)).strip()
+    metadata = payload.get("metadata", {})
+    occurred_at = payload.get("occurred_at")
+    if not event_type:
+        raise ApiError("event_type is required.", errors={"event_type": ["Required."]})
+    if not source:
+        raise ApiError("source is required.", errors={"source": ["Required."]})
+    if slugify(event_type) != event_type:
+        raise ApiError("event_type must be a slug.", errors={"event_type": ["Use a slug value."]})
+    if slugify(source) != source:
+        raise ApiError("source must be a slug.", errors={"source": ["Use a slug value."]})
+    if not summary:
+        raise ApiError("summary is required.", errors={"summary": ["Required."]})
+    if severity not in {choice[0] for choice in CaseEventSeverity.choices}:
+        raise ApiError("Unsupported severity.", errors={"severity": ["Unsupported severity."]})
+    if not isinstance(metadata, dict):
+        raise ApiError("metadata must be an object.", errors={"metadata": ["Must be an object."]})
+    parsed_occurred_at = None
+    if occurred_at:
+        parsed_occurred_at = parse_datetime(str(occurred_at))
+        if not parsed_occurred_at:
+            raise ApiError("occurred_at must be an ISO datetime.", errors={"occurred_at": ["Invalid datetime."]})
+    return {
+        "event_type": event_type,
+        "source": source,
+        "summary": summary,
+        "severity": severity,
+        "metadata": metadata,
+        "occurred_at": parsed_occurred_at,
+    }
 
 
 def _operator_update_data(payload: dict[str, Any], ticket: Ticket) -> dict[str, Any]:
@@ -363,11 +447,7 @@ def api_ticket_create(request: HttpRequest, agent_token: OperationsAgentToken) -
     form = TicketCreateForm(_ticket_create_data(payload), user=agent_token.user)
     if not form.is_valid():
         raise ApiError("Ticket payload is invalid.", errors=_field_errors(form))
-    ticket = form.save(commit=False)
-    ticket.reporter = agent_token.user
-    ticket.save()
-    ticket.generate_workflow_checklist()
-    TicketMessage.objects.create(ticket=ticket, author=agent_token.user, body=ticket.description)
+    ticket = create_ticket_from_form(form, reporter=agent_token.user)
     return JsonResponse({"ticket": _serialize_ticket(ticket)}, status=201)
 
 
@@ -397,11 +477,7 @@ def api_case_upsert(request: HttpRequest, agent_token: OperationsAgentToken) -> 
         form = TicketCreateForm(_ticket_create_data(payload), user=agent_token.user)
         if not form.is_valid():
             raise ApiError("Case payload is invalid.", errors=_field_errors(form))
-        ticket = form.save(commit=False)
-        ticket.reporter = agent_token.user
-        ticket.save()
-        ticket.generate_workflow_checklist()
-        TicketMessage.objects.create(ticket=ticket, author=agent_token.user, body=ticket.description)
+        ticket = create_ticket_from_form(form, reporter=agent_token.user)
         reference = ExternalReference.objects.create(ticket=ticket, **reference_data)
         _apply_case_status_payload(ticket, payload, agent_token)
 
@@ -415,11 +491,25 @@ def api_case_upsert(request: HttpRequest, agent_token: OperationsAgentToken) -> 
     )
 
 
-@require_http_methods(["GET"])
-@_api_view(OperationsAgentScope.CASES_READ)
-def api_case_detail(request: HttpRequest, agent_token: OperationsAgentToken, pk: int) -> JsonResponse:
-    ticket = _get_api_case(agent_token, pk)
-    return JsonResponse({"case": _serialize_case(ticket)})
+@csrf_exempt
+@require_http_methods(["GET", "PATCH"])
+def api_case_detail(request: HttpRequest, pk: int) -> JsonResponse:
+    scope = OperationsAgentScope.CASES_READ if request.method == "GET" else OperationsAgentScope.CASES_UPDATE
+    agent_token = _authenticate(request, scope)
+    if isinstance(agent_token, JsonResponse):
+        return agent_token
+    try:
+        ticket = _get_api_case(agent_token, pk)
+        if request.method == "PATCH":
+            payload = _parse_json(request)
+            update_fields = _update_ticket_from_case_payload(ticket, payload)
+            if update_fields:
+                ticket.save()
+            _apply_case_status_payload(ticket, payload, agent_token)
+            ticket.refresh_from_db()
+        return JsonResponse({"case": _serialize_case(ticket)})
+    except ApiError as exc:
+        return _json_error(str(exc), status=exc.status, errors=exc.errors)
 
 
 @require_http_methods(["GET"])
@@ -440,6 +530,51 @@ def api_case_external_detail(
             "external_reference": _serialize_external_reference(reference),
         }
     )
+
+
+@require_http_methods(["POST"])
+@_api_view(OperationsAgentScope.CASES_NOTE)
+def api_case_note(request: HttpRequest, agent_token: OperationsAgentToken, pk: int) -> JsonResponse:
+    ticket = _get_api_case(agent_token, pk)
+    payload = _parse_json(request)
+    form = MessageForm(payload)
+    if not form.is_valid():
+        raise ApiError("Note payload is invalid.", errors=_field_errors(form))
+    message = add_ticket_message(
+        ticket,
+        author=agent_token.user,
+        body=form.cleaned_data["body"],
+        is_operator_note=bool(agent_token.user.is_staff and payload.get("is_operator_note")),
+        notification_body=f"{agent_token.user} wrote via case API:\n\n{form.cleaned_data['body']}",
+    )
+    return JsonResponse({"message": _serialize_message(message), "case": _serialize_case(ticket)}, status=201)
+
+
+@require_http_methods(["POST"])
+@_api_view(OperationsAgentScope.CASES_EVENT)
+def api_case_event(request: HttpRequest, agent_token: OperationsAgentToken, pk: int) -> JsonResponse:
+    ticket = _get_api_case(agent_token, pk)
+    payload = _parse_json(request)
+    event_data = _case_event_payload(payload)
+    reference = None
+    reference_payload = payload.get("external_reference")
+    if isinstance(reference_payload, dict):
+        reference_data = _external_reference_data({"external_reference": reference_payload})
+        reference = ExternalReference.objects.filter(
+            provider=reference_data["provider"],
+            external_id=reference_data["external_id"],
+            ticket=ticket,
+        ).first()
+        if not reference:
+            raise ApiError("External reference is not linked to this case.", status=404)
+    event = record_case_event(
+        ticket=ticket,
+        actor=agent_token.user,
+        external_reference=reference,
+        **event_data,
+    )
+    fresh_ticket = _get_api_case(agent_token, ticket.pk)
+    return JsonResponse({"event": _serialize_case_event(event), "case": _serialize_case(fresh_ticket)}, status=201)
 
 
 @require_http_methods(["GET"])
@@ -474,21 +609,13 @@ def api_ticket_message(request: HttpRequest, agent_token: OperationsAgentToken, 
     form = MessageForm(payload)
     if not form.is_valid():
         raise ApiError("Message payload is invalid.", errors=_field_errors(form))
-    message = form.save(commit=False)
-    message.ticket = ticket
-    message.author = agent_token.user
-    message.is_operator_note = bool(agent_token.user.is_staff and payload.get("is_operator_note"))
-    message.save()
-    if agent_token.user.is_staff and not message.is_operator_note:
-        ticket.record_first_response()
-    if not message.is_operator_note:
-        notify_ticket_watchers(
-            ticket,
-            f"New message on Open Response Center ticket #{ticket.pk}",
-            f"{agent_token.user} wrote via operations-agent API:\n\n{message.body}",
-            event="thread",
-            exclude_user_id=agent_token.user.id,
-        )
+    message = add_ticket_message(
+        ticket,
+        author=agent_token.user,
+        body=form.cleaned_data["body"],
+        is_operator_note=bool(agent_token.user.is_staff and payload.get("is_operator_note")),
+        notification_body=f"{agent_token.user} wrote via operations-agent API:\n\n{form.cleaned_data['body']}",
+    )
     return JsonResponse({"message": _serialize_message(message)}, status=201)
 
 
@@ -499,26 +626,15 @@ def api_ticket_update(request: HttpRequest, agent_token: OperationsAgentToken, p
     if staff_error:
         return staff_error
     ticket = _get_api_ticket(agent_token, pk)
-    old_status = ticket.status
     payload = _parse_json(request)
     form = OperatorUpdateForm(_operator_update_data(payload, ticket), instance=ticket)
     if not form.is_valid():
         raise ApiError("Ticket update payload is invalid.", errors=_field_errors(form))
-    updated_ticket = form.save(commit=False)
-    new_status = form.cleaned_data["status"]
-    note = form.cleaned_data.get("note", "")
-    updated_ticket.status = old_status
-    updated_ticket.save()
-    if old_status != new_status:
-        updated_ticket.transition_to(status=new_status, actor=agent_token.user, note=note)
-        notify_ticket_watchers(
-            updated_ticket,
-            f"Open Response Center ticket #{updated_ticket.pk} moved to {updated_ticket.get_status_display()}",
-            note or f"Status changed from {old_status} to {new_status}.",
-            event="status",
-            exclude_user_id=agent_token.user.id,
-        )
-    return JsonResponse({"ticket": _serialize_ticket(updated_ticket)})
+    try:
+        result = update_operator_fields_from_form(ticket, form=form, actor=agent_token.user)
+    except TicketOperationError as exc:
+        raise ApiError(str(exc)) from exc
+    return JsonResponse({"ticket": _serialize_ticket(result.ticket)})
 
 
 @require_http_methods(["POST"])
@@ -533,12 +649,12 @@ def api_ticket_promote_incident(request: HttpRequest, agent_token: OperationsAge
     if not form.is_valid():
         raise ApiError("Incident classification payload is invalid.", errors=_field_errors(form))
     try:
-        result = OpenClawWorkspaceIncidentAdapter().create_from_ticket(
+        result = create_operational_incident_from_ticket(
             ticket=ticket,
             actor=agent_token.user,
             classification=form.cleaned_data,
         )
-    except ValidationError as exc:
+    except TicketOperationError as exc:
         raise ApiError(str(exc)) from exc
     return JsonResponse(
         {

@@ -28,6 +28,9 @@ class OperationsAgentScope(models.TextChoices):
     TICKETS_UPDATE = "tickets:update", "Update ticket lifecycle fields"
     CASES_CREATE = "cases:create", "Create or upsert cases"
     CASES_READ = "cases:read", "Read visible cases"
+    CASES_UPDATE = "cases:update", "Update cases"
+    CASES_NOTE = "cases:note", "Add case notes"
+    CASES_EVENT = "cases:event", "Add case events"
     INCIDENTS_PROMOTE = "incidents:promote", "Promote tickets to operational incidents"
 
 
@@ -771,6 +774,48 @@ class ExternalReference(models.Model):
 
     def __str__(self) -> str:
         return f"{self.provider}:{self.external_id}"
+
+
+class CaseEventSeverity(models.TextChoices):
+    INFO = "info", "Info"
+    WARNING = "warning", "Warning"
+    ERROR = "error", "Error"
+    CRITICAL = "critical", "Critical"
+
+
+class CaseEvent(models.Model):
+    ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name="case_events")
+    external_reference = models.ForeignKey(
+        ExternalReference,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="case_events",
+    )
+    actor = models.ForeignKey(
+        User,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="case_events",
+    )
+    source = models.SlugField(max_length=80, default="open-response-center")
+    event_type = models.SlugField(max_length=80)
+    severity = models.CharField(max_length=20, choices=CaseEventSeverity.choices, default=CaseEventSeverity.INFO)
+    summary = models.TextField()
+    metadata = models.JSONField(blank=True, default=dict)
+    occurred_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["ticket", "created_at"]),
+            models.Index(fields=["source", "event_type"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.ticket_id} {self.source}:{self.event_type}"
 
 
 class TicketWorkflowChecklistItem(models.Model):

@@ -16,6 +16,8 @@ urlpatterns = [
     ),
     path("api/v1/cases/", api.api_case_upsert, name="api-v1-case-upsert"),
     path("api/v1/cases/<int:pk>/", api.api_case_detail, name="api-v1-case-detail"),
+    path("api/v1/cases/<int:pk>/notes/", api.api_case_note, name="api-v1-case-note"),
+    path("api/v1/cases/<int:pk>/events/", api.api_case_event, name="api-v1-case-event"),
     path(
         "api/v1/cases/external/<slug:provider>/<path:external_id>/",
         api.api_case_external_detail,

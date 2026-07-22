@@ -17,7 +17,6 @@ from .forms import (
     TicketKnowledgeBaseLinkForm,
     TicketCreateForm,
 )
-from .incident_adapters import OpenClawWorkspaceIncidentAdapter
 from .models import (
     Attachment,
     Department,
@@ -26,11 +25,17 @@ from .models import (
     NotificationPreference,
     Ticket,
     TicketKnowledgeBaseLink,
-    TicketMessage,
     TicketStatus,
-    TicketWorkflowChecklistItem,
 )
-from .notifications import notify_ticket_watchers
+from .services import (
+    TicketOperationError,
+    add_ticket_message,
+    create_operational_incident_from_ticket,
+    create_ticket_from_form,
+    reorder_ticket_board as reorder_ticket_board_service,
+    update_operator_fields_from_form,
+    update_workflow_checklist as update_workflow_checklist_service,
+)
 
 
 def _visible_tickets(user):
@@ -169,49 +174,23 @@ def ticket_board(request):
 @require_POST
 def reorder_ticket_board(request):
     target_status = request.POST.get("status", "").strip()
-    valid_statuses = {choice[0] for choice in TicketStatus.choices}
-    if target_status not in valid_statuses:
-        return HttpResponseBadRequest("Unsupported lifecycle status.")
-
     ticket_ids = [int(ticket_id) for ticket_id in request.POST.getlist("ticket_ids") if ticket_id.isdigit()]
     moved_ticket_id = request.POST.get("moved_ticket_id", "").strip()
-    if not moved_ticket_id.isdigit() or int(moved_ticket_id) not in ticket_ids:
+    if not moved_ticket_id.isdigit():
         return HttpResponseBadRequest("Moved ticket is required.")
 
-    moved_ticket = get_object_or_404(_operator_queue_tickets(request.user), pk=int(moved_ticket_id))
-    if target_status == TicketStatus.CLOSED and moved_ticket.has_blocking_workflow_items():
-        return JsonResponse(
-            {"ok": False, "error": "Complete blocking workflow checklist items before closing this ticket."},
-            status=400,
+    try:
+        changed_statuses = reorder_ticket_board_service(
+            actor=request.user,
+            target_status=target_status,
+            ticket_ids=ticket_ids,
+            moved_ticket_id=int(moved_ticket_id),
+            visible_tickets=_operator_queue_tickets(request.user),
         )
-
-    visible_ticket_ids = set(_operator_queue_tickets(request.user).filter(pk__in=ticket_ids).values_list("pk", flat=True))
-    if set(ticket_ids) != visible_ticket_ids:
+    except TicketOperationError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+    except PermissionError:
         return HttpResponseForbidden("Board order includes tickets outside your operator queue.")
-
-    tickets_by_id = Ticket.objects.in_bulk(ticket_ids)
-    changed_statuses = []
-    for index, ticket_id in enumerate(ticket_ids, start=1):
-        ticket = tickets_by_id[ticket_id]
-        update_fields = []
-        next_position = index * 10
-        if ticket.board_position != next_position:
-            ticket.board_position = next_position
-            update_fields.append("board_position")
-        if ticket.status != target_status:
-            ticket.transition_to(status=target_status, actor=request.user, note="Moved on operator board.")
-            if update_fields:
-                ticket.save(update_fields=[*update_fields, "updated_at"])
-            notify_ticket_watchers(
-                ticket,
-                f"Open Response Center ticket #{ticket.pk} moved to {ticket.get_status_display()}",
-                "Status changed from the operator board.",
-                event="status",
-                exclude_user_id=request.user.id,
-            )
-            changed_statuses.append(ticket.pk)
-        elif update_fields:
-            ticket.save(update_fields=[*update_fields, "updated_at"])
 
     return JsonResponse({"ok": True, "changed_statuses": changed_statuses})
 
@@ -222,11 +201,7 @@ def ticket_create(request):
         form = TicketCreateForm(request.POST, user=request.user)
         attachment_form = AttachmentUploadForm(request.POST, request.FILES)
         if form.is_valid() and attachment_form.is_valid():
-            ticket = form.save(commit=False)
-            ticket.reporter = request.user
-            ticket.save()
-            ticket.generate_workflow_checklist()
-            TicketMessage.objects.create(ticket=ticket, author=request.user, body=ticket.description)
+            ticket = create_ticket_from_form(form, reporter=request.user)
             uploaded_file = attachment_form.cleaned_data.get("file")
             if uploaded_file:
                 Attachment.objects.create(
@@ -296,23 +271,20 @@ def add_message(request, pk: int):
         return redirect("ticket-detail", pk=ticket.pk)
     form = MessageForm(request.POST)
     if form.is_valid():
-        message = form.save(commit=False)
-        message.ticket = ticket
-        message.author = request.user
-        message.is_operator_note = request.user.is_staff and request.POST.get("is_operator_note") == "1"
-        message.save()
-        if message.is_operator_note:
+        is_operator_note = request.user.is_staff and request.POST.get("is_operator_note") == "1"
+        add_ticket_message(
+            ticket,
+            author=request.user,
+            body=form.cleaned_data["body"],
+            is_operator_note=is_operator_note,
+            notification_body=(
+                f"{request.user} wrote:\n\n{form.cleaned_data['body']}\n\n"
+                f"{request.build_absolute_uri(ticket.get_absolute_url())}"
+            ),
+        )
+        if is_operator_note:
             messages.success(request, "Internal note added.")
         else:
-            if request.user.is_staff:
-                ticket.record_first_response()
-            notify_ticket_watchers(
-                ticket,
-                f"New message on Open Response Center ticket #{ticket.pk}",
-                f"{request.user} wrote:\n\n{message.body}\n\n{request.build_absolute_uri(ticket.get_absolute_url())}",
-                event="thread",
-                exclude_user_id=request.user.id,
-            )
             messages.success(request, "Reply added.")
     return redirect("ticket-detail", pk=ticket.pk)
 
@@ -403,31 +375,15 @@ def operator_update(request, pk: int):
     ticket = get_object_or_404(Ticket, pk=pk)
     if request.method != "POST":
         return redirect("ticket-detail", pk=ticket.pk)
-    old_status = ticket.status
-    old_workflow_template_id = ticket.workflow_template_id
     form = OperatorUpdateForm(request.POST, instance=ticket)
     if form.is_valid():
-        updated_ticket = form.save(commit=False)
-        new_status = form.cleaned_data["status"]
-        note = form.cleaned_data.get("note", "")
-        updated_ticket.status = old_status
-        updated_ticket.save()
-        if updated_ticket.workflow_template_id != old_workflow_template_id:
-            created_count = updated_ticket.generate_workflow_checklist()
-            if created_count:
-                messages.info(request, f"Added {created_count} workflow checklist item(s).")
-        if old_status != new_status:
-            if new_status == TicketStatus.CLOSED and updated_ticket.has_blocking_workflow_items():
-                messages.error(request, "Complete blocking workflow checklist items before closing this ticket.")
-                return redirect("ticket-detail", pk=ticket.pk)
-            updated_ticket.transition_to(status=new_status, actor=request.user, note=note)
-            notify_ticket_watchers(
-                updated_ticket,
-                f"Open Response Center ticket #{updated_ticket.pk} moved to {updated_ticket.get_status_display()}",
-                note or f"Status changed from {old_status} to {new_status}.",
-                event="status",
-                exclude_user_id=request.user.id,
-            )
+        try:
+            result = update_operator_fields_from_form(ticket, form=form, actor=request.user)
+        except TicketOperationError as exc:
+            messages.error(request, str(exc))
+            return redirect("ticket-detail", pk=ticket.pk)
+        if result.checklist_items_created:
+            messages.info(request, f"Added {result.checklist_items_created} workflow checklist item(s).")
         messages.success(request, "Operator fields updated.")
     return redirect("ticket-detail", pk=ticket.pk)
 
@@ -438,8 +394,7 @@ def update_workflow_checklist(request, pk: int):
     if request.method != "POST":
         return redirect("ticket-detail", pk=ticket.pk)
     done_ids = {int(item_id) for item_id in request.POST.getlist("done_items") if item_id.isdigit()}
-    for item in TicketWorkflowChecklistItem.objects.filter(ticket=ticket):
-        item.set_done(is_done=item.pk in done_ids, actor=request.user)
+    update_workflow_checklist_service(ticket, done_ids=done_ids, actor=request.user)
     messages.success(request, "Workflow checklist updated.")
     return redirect("ticket-detail", pk=ticket.pk)
 
@@ -518,11 +473,7 @@ def create_operational_incident(request, pk: int):
     if not form.is_valid():
         messages.error(request, "Incident classification was not accepted.")
         return redirect("ticket-detail", pk=ticket.pk)
-    result = OpenClawWorkspaceIncidentAdapter().create_from_ticket(
-        ticket=ticket,
-        actor=request.user,
-        classification=form.cleaned_data,
-    )
+    result = create_operational_incident_from_ticket(ticket=ticket, actor=request.user, classification=form.cleaned_data)
     if result.created:
         messages.success(request, f"Operational incident {result.incident.reference} created and linked.")
     else:
