@@ -87,6 +87,28 @@ def _field_errors(form) -> dict[str, list[str]]:
     return {field: [str(error) for error in errors] for field, errors in form.errors.items()}
 
 
+def _serialize_workflow_checklist(ticket: Ticket) -> dict[str, Any]:
+    items = [
+        {
+            "id": item.pk,
+            "title": item.title,
+            "description": item.description,
+            "blocks_closure": item.blocks_closure,
+            "is_done": item.is_done,
+            "sort_order": item.sort_order,
+            "completed_by": item.completed_by.get_username() if item.completed_by else None,
+            "completed_at": item.completed_at.isoformat() if item.completed_at else None,
+        }
+        for item in ticket.workflow_items.all()
+    ]
+    return {
+        "total": len(items),
+        "completed": sum(1 for item in items if item["is_done"]),
+        "open_blocking": sum(1 for item in items if item["blocks_closure"] and not item["is_done"]),
+        "items": items,
+    }
+
+
 def _serialize_ticket(ticket: Ticket) -> dict[str, Any]:
     sla = ticket.sla_summary
     return {
@@ -107,6 +129,7 @@ def _serialize_ticket(ticket: Ticket) -> dict[str, Any]:
         "actual_outcome": ticket.actual_outcome,
         "additional_context": ticket.additional_context,
         "intake_field_values": ticket.intake_field_values,
+        "workflow_checklist": _serialize_workflow_checklist(ticket),
         "sla": {
             "state": sla["state"],
             "response_state": sla["response_state"],
@@ -162,9 +185,13 @@ def _serialize_incident(incident: OperationalIncident) -> dict[str, Any]:
 
 def _get_api_ticket(agent_token: OperationsAgentToken, pk: int) -> Ticket:
     ticket = get_object_or_404(
-        Ticket.objects.select_related("affected_system", "reporter", "operator").prefetch_related(
-            "operational_incidents"
-        ),
+        Ticket.objects.select_related(
+            "affected_system",
+            "department",
+            "workflow_template",
+            "reporter",
+            "operator",
+        ).prefetch_related("operational_incidents", "workflow_items__completed_by"),
         pk=pk,
     )
     if not ticket.can_be_viewed_by(agent_token.user):

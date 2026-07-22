@@ -63,7 +63,30 @@ keys as the reporter form when the selected system routes to a department with e
 Returns the ticket, messages, attachment metadata, and linked operational incidents visible to the
 token's user. The serialized ticket includes an `sla` object with overall state, response/resolution
 state, due timestamps, completion timestamps, and the active response/resolution windows in minutes.
-It also includes `intake_field_values` for any submitted department-specific intake answers.
+It also includes `intake_field_values` for any submitted department-specific intake answers and a
+`workflow_checklist` object:
+
+```json
+{
+  "workflow_checklist": {
+    "total": 2,
+    "completed": 1,
+    "open_blocking": 1,
+    "items": [
+      {
+        "id": 10,
+        "title": "Classify exposure",
+        "description": "Confirm exposure and access level.",
+        "blocks_closure": true,
+        "is_done": false,
+        "sort_order": 10,
+        "completed_by": null,
+        "completed_at": null
+      }
+    ]
+  }
+}
+```
 
 ### Add Message
 
