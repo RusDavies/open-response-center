@@ -21,6 +21,25 @@
       {{ form.actual_outcome.as_field_group }}
       {{ form.additional_context.as_field_group }}
     </fieldset>
+    {% with intake_groups=form.department_intake_groups %}
+      {% if intake_groups %}
+        <fieldset class="department-intake" data-department-intake>
+          <legend>Department intake</legend>
+          <p class="hint">Extra fields appear when the selected system routes to a department with its own intake needs.</p>
+          {% for group in intake_groups %}
+            <div
+              class="department-intake-group{% if not group.is_selected %} hidden{% endif %}"
+              data-department-intake-group="{{ group.department.pk }}"
+            >
+              <h2>{{ group.department.name }}</h2>
+              {% for field in group.bound_fields %}
+                {{ field.as_field_group }}
+              {% endfor %}
+            </div>
+          {% endfor %}
+        </fieldset>
+      {% endif %}
+    {% endwith %}
     <fieldset>
       <legend>Evidence</legend>
       <div class="guidance-panel">
@@ -40,4 +59,22 @@
     </div>
   </form>
 </section>
+{{ form.system_department_map|json_script:"system-department-map" }}
+<script>
+  const systemDepartmentMap = JSON.parse(document.getElementById("system-department-map").textContent);
+  const systemSelect = document.getElementById("id_affected_system");
+  const intakeGroups = document.querySelectorAll("[data-department-intake-group]");
+
+  function updateDepartmentIntake() {
+    const departmentId = systemDepartmentMap[systemSelect.value] || "";
+    intakeGroups.forEach((group) => {
+      group.classList.toggle("hidden", group.dataset.departmentIntakeGroup !== departmentId);
+    });
+  }
+
+  if (systemSelect && intakeGroups.length) {
+    systemSelect.addEventListener("change", updateDepartmentIntake);
+    updateDepartmentIntake();
+  }
+</script>
 {% endblock %}

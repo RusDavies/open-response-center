@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import (
     Attachment,
     Department,
+    DepartmentIntakeField,
     KnowledgeBaseArticle,
     LifecycleEvent,
     NotificationPreference,
@@ -116,12 +117,19 @@ class WorkflowChecklistItemTemplateInline(admin.TabularInline):
     extra = 1
 
 
+class DepartmentIntakeFieldInline(admin.TabularInline):
+    model = DepartmentIntakeField
+    extra = 1
+    prepopulated_fields = {"slug": ["label"]}
+
+
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
     list_display = ["name", "slug", "is_active"]
     filter_horizontal = ["operator_groups"]
     prepopulated_fields = {"slug": ["name"]}
     search_fields = ["name", "description"]
+    inlines = [DepartmentIntakeFieldInline]
 
 
 @admin.register(WorkflowTemplate)

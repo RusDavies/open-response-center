@@ -47,12 +47,14 @@ Lifecycle updates and incident promotion also require the token's Django user to
   "reproduction_steps": "1. Open node. 2. Upload screenshots.",
   "expected_outcome": "All screenshots upload.",
   "actual_outcome": "The first upload succeeds, then the node disconnects.",
-  "additional_context": "Raised by an operations agent."
+  "additional_context": "Raised by an operations agent.",
+  "department_intake_12": "gateway-health"
 }
 ```
 
 `affected_system` may be a system slug or numeric id, and is filtered through the same visibility
-rules as the reporter form.
+rules as the reporter form. Department-specific intake fields use the same `department_intake_<field id>`
+keys as the reporter form when the selected system routes to a department with extra fields.
 
 ### Read Ticket
 
@@ -61,6 +63,7 @@ rules as the reporter form.
 Returns the ticket, messages, attachment metadata, and linked operational incidents visible to the
 token's user. The serialized ticket includes an `sla` object with overall state, response/resolution
 state, due timestamps, completion timestamps, and the active response/resolution windows in minutes.
+It also includes `intake_field_values` for any submitted department-specific intake answers.
 
 ### Add Message
 

@@ -90,6 +90,10 @@ point to a default department and workflow template. When a ticket is created, t
 defaults, optionally applies a workflow default impact, and generates ticket-local checklist rows from
 the template.
 
+Departments can also define extra intake fields for structured data that only matters to that queue.
+Those definitions are stored separately from tickets, while submitted answers are copied onto the
+ticket as JSON so later changes to department field definitions do not rewrite historical reports.
+
 Generated checklist rows are deliberately copied onto the ticket instead of read live from the template.
 That preserves the operator record even if a department later edits its workflow template. Blocking
 checklist rows prevent the ticket from moving to closed until an operator marks them complete.

@@ -2,6 +2,7 @@ from django import forms
 
 from .models import (
     Attachment,
+    DepartmentIntakeFieldType,
     IncidentAccessLevel,
     IncidentActionability,
     IncidentExposure,
@@ -21,6 +22,7 @@ from .models import (
 
 class TicketCreateForm(forms.ModelForm):
     required_intake_fields = ["issue_summary", "reproduction_steps", "expected_outcome", "actual_outcome"]
+    intake_field_prefix = "department_intake_"
 
     class Meta:
         model = Ticket
@@ -64,12 +66,119 @@ class TicketCreateForm(forms.ModelForm):
             self.fields["affected_system"].queryset = self._affected_system_queryset(user)
         for field_name in self.required_intake_fields:
             self.fields[field_name].required = True
+        self.department_intake_fields = self._department_intake_fields()
+        self.selected_department = self._selected_department()
+        for intake_field in self.department_intake_fields:
+            form_field = self._build_department_intake_form_field(intake_field)
+            if self.selected_department and intake_field.department_id == self.selected_department.pk:
+                form_field.required = intake_field.is_required
+            form_field.widget.attrs["data-department-intake-input"] = str(intake_field.department_id)
+            self.fields[self._department_intake_field_name(intake_field)] = form_field
 
     def _affected_system_queryset(self, user):
-        return System.visible_to(user)
+        return System.visible_to(user).select_related("default_department").prefetch_related(
+            "default_department__intake_fields"
+        )
+
+    def _department_intake_fields(self):
+        department_ids = [
+            system.default_department_id
+            for system in self.fields["affected_system"].queryset
+            if system.default_department_id
+        ]
+        fields_by_id = {}
+        for system in self.fields["affected_system"].queryset:
+            department = system.default_department
+            if not department or department.pk not in department_ids:
+                continue
+            for intake_field in department.intake_fields.filter(is_active=True):
+                fields_by_id[intake_field.pk] = intake_field
+        return sorted(fields_by_id.values(), key=lambda field: (field.department.name, field.sort_order, field.label))
+
+    def _selected_department(self):
+        raw_system_id = None
+        if self.is_bound:
+            raw_system_id = self.data.get(self.add_prefix("affected_system"))
+        elif self.initial.get("affected_system"):
+            raw_system_id = self.initial["affected_system"]
+        if not raw_system_id:
+            return None
+        try:
+            system = self.fields["affected_system"].queryset.get(pk=raw_system_id)
+        except (System.DoesNotExist, ValueError, TypeError):
+            return None
+        return system.default_department
+
+    def _department_intake_field_name(self, intake_field):
+        return f"{self.intake_field_prefix}{intake_field.pk}"
+
+    def _build_department_intake_form_field(self, intake_field):
+        kwargs = {
+            "label": intake_field.label,
+            "help_text": intake_field.help_text,
+            "required": False,
+        }
+        if intake_field.field_type == DepartmentIntakeFieldType.TEXTAREA:
+            return forms.CharField(widget=forms.Textarea(attrs={"rows": 3}), **kwargs)
+        if intake_field.field_type == DepartmentIntakeFieldType.URL:
+            return forms.URLField(**kwargs)
+        if intake_field.field_type == DepartmentIntakeFieldType.SELECT:
+            return forms.ChoiceField(choices=[("", "---------"), *intake_field.choice_pairs()], **kwargs)
+        if intake_field.field_type == DepartmentIntakeFieldType.CHECKBOX:
+            return forms.BooleanField(**kwargs)
+        return forms.CharField(**kwargs)
+
+    def department_intake_groups(self):
+        groups = []
+        fields_by_department = {}
+        for intake_field in self.department_intake_fields:
+            fields_by_department.setdefault(intake_field.department, []).append(intake_field)
+        for department, intake_fields in fields_by_department.items():
+            groups.append(
+                {
+                    "department": department,
+                    "is_selected": self.selected_department and self.selected_department.pk == department.pk,
+                    "bound_fields": [
+                        self[self._department_intake_field_name(intake_field)] for intake_field in intake_fields
+                    ],
+                }
+            )
+        return groups
+
+    @property
+    def system_department_map(self):
+        return {
+            str(system.pk): str(system.default_department_id)
+            for system in self.fields["affected_system"].queryset
+            if system.default_department_id
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        selected_system = cleaned_data.get("affected_system")
+        selected_department = selected_system.default_department if selected_system else None
+        self.cleaned_intake_field_values = {}
+        if not selected_department:
+            return cleaned_data
+        for intake_field in selected_department.intake_fields.filter(is_active=True):
+            field_name = self._department_intake_field_name(intake_field)
+            value = cleaned_data.get(field_name)
+            if intake_field.is_required and (value in ("", None) or value is False):
+                self.add_error(field_name, "This department requires this field.")
+            if value in ("", None) or value is False:
+                continue
+            display_value = "Yes" if isinstance(value, bool) else value
+            self.cleaned_intake_field_values[intake_field.slug] = {
+                "label": intake_field.label,
+                "value": value,
+                "display_value": display_value,
+                "field_type": intake_field.field_type,
+            }
+        return cleaned_data
 
     def save(self, commit=True):
         ticket = super().save(commit=False)
+        ticket.intake_field_values = getattr(self, "cleaned_intake_field_values", {})
         ticket.description = ticket.build_description()
         if commit:
             ticket.save()
