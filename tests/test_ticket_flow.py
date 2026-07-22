@@ -16,6 +16,8 @@ from django.utils import timezone
 from tickets.models import (
     Attachment,
     Department,
+    DepartmentIntakeField,
+    DepartmentIntakeFieldType,
     ImpactLevel,
     KnowledgeBaseArticle,
     KnowledgeBaseAudience,
@@ -149,6 +151,95 @@ class TicketFlowTests(TestCase):
             list(ticket.workflow_items.order_by("sort_order").values_list("title", flat=True)),
             ["Classify exposure", "Verify remediation"],
         )
+
+    def test_department_intake_fields_render_and_persist_with_ticket(self):
+        department = Department.objects.create(name="Security", slug="security")
+        asset_field = DepartmentIntakeField.objects.create(
+            department=department,
+            label="Affected asset",
+            slug="affected-asset",
+            help_text="Hostname, device, or account involved.",
+            is_required=True,
+            sort_order=10,
+        )
+        severity_field = DepartmentIntakeField.objects.create(
+            department=department,
+            label="Suspected exposure",
+            slug="suspected-exposure",
+            field_type=DepartmentIntakeFieldType.SELECT,
+            choices="No data exposed\nInternal data\nCustomer data",
+            sort_order=20,
+        )
+        self.system.default_department = department
+        self.system.save(update_fields=["default_department"])
+
+        client = Client()
+        client.force_login(self.reporter)
+        response = client.get(reverse("ticket-create"))
+
+        self.assertContains(response, "Department intake")
+        self.assertContains(response, "Affected asset")
+        self.assertContains(response, "Suspected exposure")
+        self.assertContains(response, "Hostname, device, or account involved.")
+
+        response = client.post(
+            reverse("ticket-create"),
+            {
+                "title": "Token leaked in log",
+                "affected_system": self.system.pk,
+                "impact": "medium",
+                "issue_summary": "A bearer token appears in a runtime log.",
+                "reproduction_steps": "1. Trigger a failing request.\n2. Open the log.",
+                "expected_outcome": "Logs redact secrets.",
+                "actual_outcome": "The token is visible.",
+                "additional_context": "",
+                f"department_intake_{asset_field.pk}": "node-17",
+                f"department_intake_{severity_field.pk}": "Internal data",
+            },
+        )
+
+        ticket = Ticket.objects.get(title="Token leaked in log")
+        self.assertRedirects(response, reverse("ticket-detail", kwargs={"pk": ticket.pk}))
+        self.assertEqual(ticket.intake_field_values["affected-asset"]["value"], "node-17")
+        self.assertEqual(ticket.intake_field_values["suspected-exposure"]["value"], "Internal data")
+        self.assertIn("Affected asset", ticket.description)
+        self.assertIn("node-17", ticket.description)
+
+        detail = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
+        self.assertContains(detail, "Department intake")
+        self.assertContains(detail, "Affected asset")
+        self.assertContains(detail, "node-17")
+
+    def test_department_intake_required_fields_are_enforced(self):
+        department = Department.objects.create(name="Hardware", slug="hardware")
+        DepartmentIntakeField.objects.create(
+            department=department,
+            label="Device serial",
+            slug="device-serial",
+            is_required=True,
+        )
+        self.system.default_department = department
+        self.system.save(update_fields=["default_department"])
+        client = Client()
+        client.force_login(self.reporter)
+
+        response = client.post(
+            reverse("ticket-create"),
+            {
+                "title": "Printer smoking",
+                "affected_system": self.system.pk,
+                "impact": "high",
+                "issue_summary": "Printer smells hot.",
+                "reproduction_steps": "1. Print a test page.",
+                "expected_outcome": "Paper comes out.",
+                "actual_outcome": "Smoke comes out.",
+                "additional_context": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "This department requires this field.")
+        self.assertFalse(Ticket.objects.filter(title="Printer smoking").exists())
 
     def test_blocking_workflow_items_must_be_done_before_closing_ticket(self):
         department = Department.objects.create(name="Software", slug="software")
@@ -1233,6 +1324,15 @@ class TicketFlowTests(TestCase):
         self.assertIn(OperationsAgentScope.TICKETS_READ, response.json()["error"])
 
     def test_operations_agent_api_can_create_and_read_ticket(self):
+        department = Department.objects.create(name="Operations", slug="operations")
+        intake_field = DepartmentIntakeField.objects.create(
+            department=department,
+            label="Monitor name",
+            slug="monitor-name",
+            is_required=True,
+        )
+        self.system.default_department = department
+        self.system.save(update_fields=["default_department"])
         agent_token, raw_token = self.issue_agent_token(
             user=self.reporter,
             scopes=[OperationsAgentScope.TICKETS_CREATE, OperationsAgentScope.TICKETS_READ],
@@ -1246,6 +1346,7 @@ class TicketFlowTests(TestCase):
             "expected_outcome": "Runtime check passes.",
             "actual_outcome": "Runtime check failed.",
             "additional_context": "Raised by an operations-agent API token.",
+            f"department_intake_{intake_field.pk}": "gateway-health",
         }
 
         response = Client().post(
@@ -1259,6 +1360,7 @@ class TicketFlowTests(TestCase):
         self.assertEqual(response.json()["ticket"]["id"], ticket.pk)
         self.assertEqual(ticket.reporter, self.reporter)
         self.assertEqual(ticket.affected_system, self.system)
+        self.assertEqual(ticket.intake_field_values["monitor-name"]["value"], "gateway-health")
         self.assertEqual(ticket.messages.get().author, self.reporter)
 
         detail = Client().get(
@@ -1269,6 +1371,7 @@ class TicketFlowTests(TestCase):
         agent_token.refresh_from_db()
         self.assertEqual(detail.status_code, 200)
         self.assertEqual(detail.json()["ticket"]["affected_system"], "openclaw-runtime")
+        self.assertEqual(detail.json()["ticket"]["intake_field_values"]["monitor-name"]["value"], "gateway-health")
         self.assertEqual(detail.json()["ticket"]["sla"]["state"], "on_track")
         self.assertIsNotNone(detail.json()["ticket"]["sla"]["response_due_at"])
         self.assertEqual(detail.json()["messages"][0]["body"], ticket.description)

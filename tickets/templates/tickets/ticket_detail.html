@@ -32,6 +32,15 @@
         <dd>{{ ticket.additional_context|linebreaksbr }}</dd>
       {% endif %}
     </dl>
+    {% if ticket.intake_field_values %}
+      <h2>Department intake</h2>
+      <dl class="issue-report">
+        {% for field in ticket.intake_field_values.values %}
+          <dt>{{ field.label }}</dt>
+          <dd>{{ field.display_value|default:field.value|linebreaksbr }}</dd>
+        {% endfor %}
+      </dl>
+    {% endif %}
 
     <h2>Thread</h2>
     {% for message in messages %}

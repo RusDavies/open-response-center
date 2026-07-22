@@ -106,6 +106,7 @@ def _serialize_ticket(ticket: Ticket) -> dict[str, Any]:
         "expected_outcome": ticket.expected_outcome,
         "actual_outcome": ticket.actual_outcome,
         "additional_context": ticket.additional_context,
+        "intake_field_values": ticket.intake_field_values,
         "sla": {
             "state": sla["state"],
             "response_state": sla["response_state"],

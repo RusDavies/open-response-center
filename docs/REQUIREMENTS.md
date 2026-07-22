@@ -6,6 +6,7 @@
 - Internal identity can be supplied by a trusted reverse proxy through explicitly enabled remote-user headers.
 - Reports include title, affected system, impact, summary of issue, actions to repeat, expected outcome, actual outcome, optional additional context, and optional evidence attachments.
 - Systems can route reports to a default department and workflow template.
+- Departments can define extra intake fields for reports that need department-specific structured data.
 - Department workflow templates can generate operator checklist items for each ticket.
 - Operator ticket queues can be filtered by department responsibility and preserve admin-wide visibility.
 - Blocking workflow checklist items must be completed before an operator can close the ticket.

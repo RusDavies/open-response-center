@@ -162,6 +162,42 @@ class Department(models.Model):
         return self.name
 
 
+class DepartmentIntakeFieldType(models.TextChoices):
+    TEXT = "text", "Short text"
+    TEXTAREA = "textarea", "Long text"
+    URL = "url", "URL"
+    SELECT = "select", "Select"
+    CHECKBOX = "checkbox", "Checkbox"
+
+
+class DepartmentIntakeField(models.Model):
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name="intake_fields")
+    label = models.CharField(max_length=140)
+    slug = models.SlugField(max_length=160)
+    help_text = models.CharField(max_length=240, blank=True)
+    field_type = models.CharField(
+        max_length=20,
+        choices=DepartmentIntakeFieldType.choices,
+        default=DepartmentIntakeFieldType.TEXT,
+    )
+    choices = models.TextField(blank=True, help_text="One option per line for select fields.")
+    is_required = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "label"]
+        constraints = [
+            models.UniqueConstraint(fields=["department", "slug"], name="unique_department_intake_field"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.department}: {self.label}"
+
+    def choice_pairs(self) -> list[tuple[str, str]]:
+        return [(choice.strip(), choice.strip()) for choice in self.choices.splitlines() if choice.strip()]
+
+
 class System(models.Model):
     name = models.CharField(max_length=120, unique=True)
     slug = models.SlugField(max_length=140, unique=True)
@@ -338,6 +374,7 @@ class Ticket(models.Model):
     expected_outcome = models.TextField(blank=True)
     actual_outcome = models.TextField(blank=True)
     additional_context = models.TextField(blank=True)
+    intake_field_values = models.JSONField(blank=True, default=dict)
     affected_system = models.ForeignKey(
         System,
         blank=True,
@@ -413,6 +450,12 @@ class Ticket(models.Model):
             ("Actual outcome", self.actual_outcome),
             ("Additional context", self.additional_context),
         ]
+        if self.intake_field_values:
+            for field in self.intake_field_values.values():
+                label = field.get("label", "").strip()
+                value = field.get("display_value", field.get("value"))
+                if label and str(value or "").strip():
+                    sections.append((label, str(value).strip()))
         return "\n\n".join(f"{heading}:\n{body.strip()}" for heading, body in sections if body.strip())
 
     def save(self, *args, **kwargs):
