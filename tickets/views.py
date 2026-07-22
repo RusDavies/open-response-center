@@ -1,9 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Q
-from django.http import FileResponse, Http404, HttpResponseForbidden
+from django.http import FileResponse, Http404, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.text import slugify
+from django.views.decorators.http import require_POST
 
 from .forms import (
     AttachmentUploadForm,
@@ -141,7 +142,7 @@ def ticket_board(request):
             "workflow_template",
         ),
     )
-    tickets = list(_filter_department(queryset, department).order_by("status", "-updated_at", "-created_at"))
+    tickets = list(_filter_department(queryset, department).order_by("status", "board_position", "-updated_at", "-created_at"))
     tickets_by_status = {}
     for ticket in tickets:
         tickets_by_status.setdefault(ticket.status, []).append(ticket)
@@ -162,6 +163,57 @@ def ticket_board(request):
             "departments": _operator_filter_departments(request.user),
         },
     )
+
+
+@user_passes_test(_is_operator)
+@require_POST
+def reorder_ticket_board(request):
+    target_status = request.POST.get("status", "").strip()
+    valid_statuses = {choice[0] for choice in TicketStatus.choices}
+    if target_status not in valid_statuses:
+        return HttpResponseBadRequest("Unsupported lifecycle status.")
+
+    ticket_ids = [int(ticket_id) for ticket_id in request.POST.getlist("ticket_ids") if ticket_id.isdigit()]
+    moved_ticket_id = request.POST.get("moved_ticket_id", "").strip()
+    if not moved_ticket_id.isdigit() or int(moved_ticket_id) not in ticket_ids:
+        return HttpResponseBadRequest("Moved ticket is required.")
+
+    moved_ticket = get_object_or_404(_operator_queue_tickets(request.user), pk=int(moved_ticket_id))
+    if target_status == TicketStatus.CLOSED and moved_ticket.has_blocking_workflow_items():
+        return JsonResponse(
+            {"ok": False, "error": "Complete blocking workflow checklist items before closing this ticket."},
+            status=400,
+        )
+
+    visible_ticket_ids = set(_operator_queue_tickets(request.user).filter(pk__in=ticket_ids).values_list("pk", flat=True))
+    if set(ticket_ids) != visible_ticket_ids:
+        return HttpResponseForbidden("Board order includes tickets outside your operator queue.")
+
+    tickets_by_id = Ticket.objects.in_bulk(ticket_ids)
+    changed_statuses = []
+    for index, ticket_id in enumerate(ticket_ids, start=1):
+        ticket = tickets_by_id[ticket_id]
+        update_fields = []
+        next_position = index * 10
+        if ticket.board_position != next_position:
+            ticket.board_position = next_position
+            update_fields.append("board_position")
+        if ticket.status != target_status:
+            ticket.transition_to(status=target_status, actor=request.user, note="Moved on operator board.")
+            if update_fields:
+                ticket.save(update_fields=[*update_fields, "updated_at"])
+            notify_ticket_watchers(
+                ticket,
+                f"Open Response Center ticket #{ticket.pk} moved to {ticket.get_status_display()}",
+                "Status changed from the operator board.",
+                event="status",
+                exclude_user_id=request.user.id,
+            )
+            changed_statuses.append(ticket.pk)
+        elif update_fields:
+            ticket.save(update_fields=[*update_fields, "updated_at"])
+
+    return JsonResponse({"ok": True, "changed_statuses": changed_statuses})
 
 
 @login_required
