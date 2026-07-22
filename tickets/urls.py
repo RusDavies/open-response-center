@@ -14,6 +14,13 @@ urlpatterns = [
         api.api_ticket_promote_incident,
         name="api-ticket-promote-incident",
     ),
+    path("api/v1/cases/", api.api_case_upsert, name="api-v1-case-upsert"),
+    path("api/v1/cases/<int:pk>/", api.api_case_detail, name="api-v1-case-detail"),
+    path(
+        "api/v1/cases/external/<slug:provider>/<path:external_id>/",
+        api.api_case_external_detail,
+        name="api-v1-case-external-detail",
+    ),
     path("preferences/", views.notification_preferences, name="notification-preferences"),
     path("knowledge-base/", views.knowledge_base_list, name="knowledge-base-list"),
     path("knowledge-base/new/", views.knowledge_base_create, name="knowledge-base-create"),

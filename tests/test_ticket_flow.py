@@ -18,6 +18,7 @@ from tickets.models import (
     Department,
     DepartmentIntakeField,
     DepartmentIntakeFieldType,
+    ExternalReference,
     ImpactLevel,
     KnowledgeBaseArticle,
     KnowledgeBaseAudience,
@@ -1511,6 +1512,122 @@ class TicketFlowTests(TestCase):
         self.assertIsNotNone(detail.json()["ticket"]["sla"]["response_due_at"])
         self.assertEqual(detail.json()["messages"][0]["body"], ticket.description)
         self.assertIsNotNone(agent_token.last_used_at)
+
+    def test_api_v1_case_upsert_creates_ticket_with_external_reference(self):
+        _, raw_token = self.issue_agent_token(
+            user=self.operator,
+            scopes=[OperationsAgentScope.CASES_CREATE, OperationsAgentScope.CASES_READ],
+        )
+        payload = {
+            "external_reference": {
+                "provider": "openclaw-gateway-watchdog",
+                "external_id": "gateway-health-152955",
+                "metadata": {"gateway": "primary", "check": "heartbeat"},
+            },
+            "title": "Gateway heartbeat failed",
+            "affected_system": "openclaw-runtime",
+            "impact": "high",
+            "issue_summary": "Gateway watchdog missed two heartbeats.",
+            "reproduction_steps": "1. Poll gateway health.\n2. Observe missed heartbeat.",
+            "expected_outcome": "Gateway responds before the watchdog deadline.",
+            "actual_outcome": "Gateway did not respond before the deadline.",
+            "additional_context": "Raised by the watchdog handoff API.",
+        }
+
+        response = Client().post(
+            reverse("api-v1-case-upsert"),
+            data=json.dumps(payload),
+            **self.api_headers(raw_token),
+        )
+
+        ticket = Ticket.objects.get(title="Gateway heartbeat failed")
+        reference = ExternalReference.objects.get()
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.json()["created"])
+        self.assertEqual(response.json()["case"]["ticket"]["id"], ticket.pk)
+        self.assertEqual(response.json()["external_reference"]["provider"], "openclaw-gateway-watchdog")
+        self.assertEqual(reference.ticket, ticket)
+        self.assertEqual(reference.external_id, "gateway-health-152955")
+        self.assertEqual(reference.metadata["check"], "heartbeat")
+        self.assertEqual(ticket.reporter, self.operator)
+        self.assertEqual(ticket.affected_system, self.system)
+
+        detail = Client().get(
+            reverse(
+                "api-v1-case-external-detail",
+                kwargs={
+                    "provider": "openclaw-gateway-watchdog",
+                    "external_id": "gateway-health-152955",
+                },
+            ),
+            HTTP_AUTHORIZATION=f"Bearer {raw_token}",
+        )
+
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["case"]["ticket"]["status"], TicketStatus.RECEIVED)
+        self.assertEqual(detail.json()["case"]["external_references"][0]["external_id"], "gateway-health-152955")
+
+    def test_api_v1_case_upsert_updates_existing_external_reference(self):
+        _, raw_token = self.issue_agent_token(
+            user=self.operator,
+            scopes=[OperationsAgentScope.CASES_CREATE, OperationsAgentScope.CASES_READ],
+        )
+        create_payload = {
+            "external_reference": {
+                "provider": "openclaw-gateway-watchdog",
+                "external_id": "gateway-health-152956",
+                "metadata": {"attempt": 1},
+            },
+            "title": "Gateway heartbeat failed",
+            "affected_system": "openclaw-runtime",
+            "impact": "medium",
+            "issue_summary": "Initial watchdog failure.",
+            "reproduction_steps": "1. Poll gateway.",
+            "expected_outcome": "Gateway responds.",
+            "actual_outcome": "Gateway failed to respond.",
+        }
+        Client().post(reverse("api-v1-case-upsert"), data=json.dumps(create_payload), **self.api_headers(raw_token))
+
+        response = Client().post(
+            reverse("api-v1-case-upsert"),
+            data=json.dumps(
+                {
+                    "external_reference": {
+                        "provider": "openclaw-gateway-watchdog",
+                        "external_id": "gateway-health-152956",
+                        "metadata": {"attempt": 2, "state": "investigating"},
+                    },
+                    "title": "Gateway heartbeat still failing",
+                    "impact": "high",
+                    "status": TicketStatus.IN_PROGRESS,
+                    "note": "Watchdog handoff moved the case into investigation.",
+                    "additional_context": "Second watchdog observation.",
+                }
+            ),
+            **self.api_headers(raw_token),
+        )
+
+        ticket = Ticket.objects.get()
+        reference = ExternalReference.objects.get()
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["created"])
+        self.assertEqual(Ticket.objects.count(), 1)
+        self.assertEqual(ExternalReference.objects.count(), 1)
+        self.assertEqual(ticket.title, "Gateway heartbeat still failing")
+        self.assertEqual(ticket.impact, ImpactLevel.HIGH)
+        self.assertEqual(ticket.status, TicketStatus.IN_PROGRESS)
+        self.assertEqual(ticket.additional_context, "Second watchdog observation.")
+        self.assertEqual(reference.metadata["attempt"], 2)
+        self.assertEqual(LifecycleEvent.objects.get(ticket=ticket).new_status, TicketStatus.IN_PROGRESS)
+
+        detail = Client().get(
+            reverse("api-v1-case-detail", kwargs={"pk": ticket.pk}),
+            HTTP_AUTHORIZATION=f"Bearer {raw_token}",
+        )
+
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["case"]["ticket"]["title"], "Gateway heartbeat still failing")
+        self.assertEqual(detail.json()["case"]["external_references"][0]["metadata"]["state"], "investigating")
 
     def test_operations_agent_api_serializes_workflow_checklist_state(self):
         department = Department.objects.create(name="Security", slug="security")
