@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from tickets.models import (
     Attachment,
+    CaseEvent,
     Department,
     DepartmentIntakeField,
     DepartmentIntakeFieldType,
@@ -31,6 +32,7 @@ from tickets.models import (
     System,
     Ticket,
     TicketKnowledgeBaseLink,
+    TicketMessage,
     TicketStatus,
     TicketWorkflowChecklistItem,
     WorkflowChecklistItemTemplate,
@@ -1628,6 +1630,91 @@ class TicketFlowTests(TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertEqual(detail.json()["case"]["ticket"]["title"], "Gateway heartbeat still failing")
         self.assertEqual(detail.json()["case"]["external_references"][0]["metadata"]["state"], "investigating")
+
+    def test_api_v1_case_note_and_event_endpoints_extend_case_timeline(self):
+        ticket = Ticket.objects.create(
+            title="Gateway timeline case",
+            description="Track watchdog events.",
+            reporter=self.operator,
+            affected_system=self.system,
+        )
+        reference = ExternalReference.objects.create(
+            ticket=ticket,
+            provider="openclaw-gateway-watchdog",
+            external_id="gateway-health-152957",
+            metadata={"gateway": "primary"},
+        )
+        _, raw_token = self.issue_agent_token(
+            user=self.operator,
+            scopes=[OperationsAgentScope.CASES_READ, OperationsAgentScope.CASES_NOTE, OperationsAgentScope.CASES_EVENT],
+        )
+
+        note = Client().post(
+            reverse("api-v1-case-note", kwargs={"pk": ticket.pk}),
+            data=json.dumps({"body": "Operator-visible status note from watchdog.", "is_operator_note": False}),
+            **self.api_headers(raw_token),
+        )
+        event = Client().post(
+            reverse("api-v1-case-event", kwargs={"pk": ticket.pk}),
+            data=json.dumps(
+                {
+                    "external_reference": {
+                        "provider": reference.provider,
+                        "external_id": reference.external_id,
+                    },
+                    "source": "openclaw-gateway-watchdog",
+                    "event_type": "heartbeat_failed",
+                    "severity": "warning",
+                    "summary": "Gateway heartbeat missed its deadline.",
+                    "metadata": {"missed": 2},
+                    "occurred_at": "2026-07-22T18:57:00Z",
+                }
+            ),
+            **self.api_headers(raw_token),
+        )
+
+        self.assertEqual(note.status_code, 201)
+        self.assertEqual(event.status_code, 201)
+        self.assertEqual(TicketMessage.objects.get(ticket=ticket).body, "Operator-visible status note from watchdog.")
+        case_event = CaseEvent.objects.get(ticket=ticket)
+        self.assertEqual(case_event.external_reference, reference)
+        self.assertEqual(case_event.event_type, "heartbeat_failed")
+        self.assertEqual(case_event.metadata["missed"], 2)
+        self.assertEqual(event.json()["case"]["case_events"][0]["event_type"], "heartbeat_failed")
+        self.assertEqual(event.json()["case"]["messages"][0]["body"], "Operator-visible status note from watchdog.")
+
+    def test_api_v1_case_patch_updates_case_fields(self):
+        ticket = Ticket.objects.create(
+            title="Patch me",
+            description="Patch this case.",
+            reporter=self.operator,
+            affected_system=self.system,
+        )
+        _, raw_token = self.issue_agent_token(
+            user=self.operator,
+            scopes=[OperationsAgentScope.CASES_UPDATE, OperationsAgentScope.CASES_READ],
+        )
+
+        response = Client().patch(
+            reverse("api-v1-case-detail", kwargs={"pk": ticket.pk}),
+            data=json.dumps(
+                {
+                    "title": "Patched case",
+                    "impact": "critical",
+                    "status": TicketStatus.IN_PROGRESS,
+                    "note": "Started from the v1 case API.",
+                }
+            ),
+            **self.api_headers(raw_token),
+        )
+
+        ticket.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(ticket.title, "Patched case")
+        self.assertEqual(ticket.impact, ImpactLevel.CRITICAL)
+        self.assertEqual(ticket.status, TicketStatus.IN_PROGRESS)
+        self.assertEqual(response.json()["case"]["ticket"]["status"], TicketStatus.IN_PROGRESS)
+        self.assertEqual(LifecycleEvent.objects.get(ticket=ticket).new_status, TicketStatus.IN_PROGRESS)
 
     def test_operations_agent_api_serializes_workflow_checklist_state(self):
         department = Department.objects.create(name="Security", slug="security")

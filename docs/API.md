@@ -30,6 +30,9 @@ Available scopes:
 - `tickets:update`
 - `cases:create`
 - `cases:read`
+- `cases:update`
+- `cases:note`
+- `cases:event`
 - `incidents:promote`
 
 Lifecycle updates and incident promotion also require the token's Django user to be staff/operator.
@@ -75,7 +78,8 @@ Supplying `status` requires a staff/operator service account and records the nor
 
 `GET /api/v1/cases/<id>/` requires `cases:read`.
 
-The response contains the serialized ticket plus linked external references:
+The response contains the serialized ticket lifecycle, SLA state, workflow checklist, messages,
+attachment metadata, linked operational incidents, external references, and structured case events:
 
 ```json
 {
@@ -93,10 +97,23 @@ The response contains the serialized ticket plus linked external references:
           "gateway": "primary"
         }
       }
-    ]
+    ],
+    "messages": [],
+    "attachments": [],
+    "operational_incidents": [],
+    "case_events": []
   }
 }
 ```
+
+### Update Case
+
+`PATCH /api/v1/cases/<id>/` requires `cases:update`.
+
+Use this for direct case updates when the caller already knows the Open Response Center case ID.
+Supported fields match the upsert endpoint's mutable fields, including `title`, `impact`, structured
+ticket fields, references, `affected_system`, and `status`. Supplying `status` requires a staff/operator
+service account and records the normal lifecycle event.
 
 ### Read Case by External Reference
 
@@ -104,6 +121,53 @@ The response contains the serialized ticket plus linked external references:
 
 Use this when a gateway/watchdog worker only has its own correlation ID and needs the current Open
 Response Center lifecycle state.
+
+### Add Case Note
+
+`POST /api/v1/cases/<id>/notes/` requires `cases:note`.
+
+```json
+{
+  "body": "Gateway watchdog is retrying the health check.",
+  "is_operator_note": true
+}
+```
+
+`is_operator_note` is honored only for staff/operator service accounts. Reporter-visible notes follow
+the normal first-response and notification rules.
+
+### Add Case Event
+
+`POST /api/v1/cases/<id>/events/` requires `cases:event`.
+
+Use events for machine-readable observations that should appear in the case timeline without pretending
+to be human conversation.
+
+```json
+{
+  "external_reference": {
+    "provider": "openclaw-gateway-watchdog",
+    "external_id": "gateway-health-152956"
+  },
+  "source": "openclaw-gateway-watchdog",
+  "event_type": "heartbeat_failed",
+  "severity": "warning",
+  "summary": "Gateway heartbeat missed its deadline.",
+  "metadata": {
+    "missed": 2
+  },
+  "occurred_at": "2026-07-22T18:57:00Z"
+}
+```
+
+`source` and `event_type` must be slug values. `severity` is one of `info`, `warning`, `error`, or
+`critical`. `metadata` must be a JSON object.
+
+## Compatibility
+
+The older `/api/tickets/...` operations-agent endpoints remain supported for existing callers. New
+automation should prefer `/api/v1/cases/...` because it supports external correlation IDs, structured
+machine events, and the same case bundle shape the GUI-facing service layer is being moved toward.
 
 ### Create Ticket
 

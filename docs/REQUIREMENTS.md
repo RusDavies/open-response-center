@@ -27,9 +27,13 @@
 - Promoted ticket attachments are copied into the operational incident evidence directory.
 - Scoped operations-agent service accounts can use authenticated JSON APIs to create and read tickets,
   add ticket messages, update lifecycle fields, and promote tickets to operational incidents.
+- Scoped operations-agent service accounts can upsert and query cases by external provider/correlation
+  IDs so gateway/watchdog automation can hand off repeat observations idempotently.
+- The system keeps structured machine-observation events separate from human ticket messages while
+  exposing both in the case API timeline.
 - Reporter evidence upload screens guide users to redact secrets and unrelated private data before submitting logs or screenshots.
 - Operators can link a report to engineering work when needed.
-- The system keeps an audit trail of status changes, comments, and attachment events.
+- The system keeps an audit trail of status changes, comments, attachment events, and integration events.
 
 ## Non-Functional Requirements
 

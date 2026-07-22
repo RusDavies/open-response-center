@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     Attachment,
+    CaseEvent,
     Department,
     DepartmentIntakeField,
     ExternalReference,
@@ -69,6 +70,12 @@ class ExternalReferenceInline(admin.TabularInline):
     readonly_fields = ["created_at", "updated_at"]
 
 
+class CaseEventInline(admin.TabularInline):
+    model = CaseEvent
+    extra = 0
+    readonly_fields = ["created_at"]
+
+
 class TicketKnowledgeBaseLinkInline(admin.TabularInline):
     model = TicketKnowledgeBaseLink
     extra = 0
@@ -114,6 +121,7 @@ class TicketAdmin(admin.ModelAdmin):
         AttachmentInline,
         TicketWorkflowChecklistItemInline,
         ExternalReferenceInline,
+        CaseEventInline,
         TicketKnowledgeBaseLinkInline,
         OperationalIncidentInline,
         LifecycleEventInline,
@@ -225,6 +233,15 @@ class ExternalReferenceAdmin(admin.ModelAdmin):
     search_fields = ["provider", "external_id", "ticket__title", "operational_incident__reference"]
     autocomplete_fields = ["ticket", "operational_incident"]
     readonly_fields = ["created_at", "updated_at"]
+
+
+@admin.register(CaseEvent)
+class CaseEventAdmin(admin.ModelAdmin):
+    list_display = ["ticket", "source", "event_type", "severity", "actor", "created_at"]
+    list_filter = ["source", "event_type", "severity", "created_at"]
+    search_fields = ["summary", "metadata", "ticket__title", "external_reference__external_id"]
+    autocomplete_fields = ["ticket", "external_reference", "actor"]
+    readonly_fields = ["created_at"]
 
 
 @admin.register(OperationsAgentToken)

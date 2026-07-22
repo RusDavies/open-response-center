@@ -24,6 +24,8 @@ Use a conventional web application:
 - TicketMessage
 - Attachment
 - LifecycleEvent
+- ExternalReference
+- CaseEvent
 - IncidentLink
 - EngineeringLink
 - NotificationPreference
@@ -45,6 +47,11 @@ system without hard-wiring ticket flows to `incidents/active/*.md`.
 - The OpenClaw file adapter is an integration backend, not the product-domain source of truth.
 - Operations-agent APIs are authenticated with scoped bearer tokens tied to Django users. Operator-grade
   lifecycle and incident actions require both the relevant API scope and a staff/operator service account.
+- API v1 case endpoints are the preferred automation contract. They expose the ticket lifecycle bundle,
+  external correlation references, human messages, linked operational incidents, and structured
+  machine-observation events.
+- `ExternalReference` records provider/external-ID correlation keys for idempotent automation handoff.
+  `CaseEvent` records structured machine observations without mixing them into human ticket threads.
 - Ticket attachments are copied into OpenClaw incident evidence on promotion so operational incidents retain a stable evidence snapshot.
 - Linked OpenClaw incident file statuses can be imported back into Open Response Center and mapped onto reporter-facing ticket statuses.
 - Engineering trackers are linked when implementation work needs them, not for every ticket.
@@ -118,7 +125,7 @@ department without changing direct ticket visibility rules.
 - Reporter/internal user: published all-internal knowledge-base articles and ticket-linked guidance.
 - Reporter/operator: email preference controls for status-change and thread-message notifications.
 - Operator: all-ticket view, status/lifecycle update, incident/engineering references, internal notes,
-  workflow checklist management, knowledge-base authoring, and ticket article links.
+  workflow checklist management, knowledge-base authoring, machine event timeline, and ticket article links.
 - Admin: Django admin for users, systems, tickets, messages, attachments, lifecycle events, and notification preferences.
 
 ## Identity Boundary
