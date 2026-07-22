@@ -1505,3 +1505,29 @@ class TicketFlowTests(TestCase):
         self.assertEqual(token.prefix, OperationsAgentToken.prefix_from_raw_token(raw_token))
         self.assertTrue(token.token_matches(raw_token))
         self.assertNotIn(raw_token, token.token_hash)
+
+    def test_seed_demo_creates_department_workflow_reference_data(self):
+        output = StringIO()
+
+        call_command("seed_demo", stdout=output)
+        call_command("seed_demo", stdout=StringIO())
+
+        departments = Department.objects.in_bulk(field_name="slug")
+        self.assertEqual(set(departments), {"admin", "hardware", "operations", "security", "software"})
+        for department in departments.values():
+            self.assertTrue(department.operator_groups.exists())
+            self.assertEqual(department.workflow_templates.count(), 1)
+            self.assertGreaterEqual(department.intake_fields.count(), 3)
+            self.assertGreaterEqual(department.workflow_templates.get().checklist_item_templates.count(), 3)
+
+        openclaw = System.objects.get(slug="openclaw-runtime")
+        self.assertEqual(openclaw.default_department.slug, "operations")
+        self.assertEqual(openclaw.default_workflow_template.name, "Operations outage triage")
+        self.assertTrue(System.objects.filter(slug="security-events", default_department__slug="security").exists())
+        self.assertTrue(System.objects.filter(slug="software-products", default_department__slug="software").exists())
+        self.assertTrue(System.objects.filter(slug="hardware-devices", default_department__slug="hardware").exists())
+        self.assertTrue(System.objects.filter(slug="admin-services", default_department__slug="admin").exists())
+        self.assertEqual(Department.objects.count(), 5)
+        self.assertEqual(WorkflowTemplate.objects.count(), 5)
+        self.assertEqual(Ticket.objects.count(), 2)
+        self.assertIn("Demo data ready.", output.getvalue())

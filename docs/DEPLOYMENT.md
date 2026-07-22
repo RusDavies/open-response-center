@@ -40,6 +40,10 @@ private internal testing, not a public internet service.
    podman compose -f podman-compose.yml exec web python manage.py seed_demo
    ```
 
+   This creates `operator` / `operator` and `reporter` / `reporter` logins, sample systems, sample
+   tickets, and reference department workflows for Security, Software, Operations, Hardware, and Admin
+   queues.
+
 5. Open `http://<tailscale-ip>:8000/` from a tailnet device.
 
 The container runs migrations and `collectstatic` before starting Gunicorn. Static files are served by
