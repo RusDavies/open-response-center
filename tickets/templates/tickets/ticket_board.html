@@ -26,16 +26,18 @@
   {% endif %}
 </form>
 
-<section class="board" aria-label="Ticket lifecycle board">
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" id="board-csrf-token">
+
+<section class="board" aria-label="Ticket lifecycle board" data-reorder-url="{% url 'ticket-board-reorder' %}">
   {% for column in board_columns %}
-    <article class="board-column">
+    <article class="board-column" data-status="{{ column.status }}">
       <header>
         <h2>{{ column.label }}</h2>
         <span class="board-count">{{ column.tickets|length }}</span>
       </header>
-      <div class="board-card-list">
+      <div class="board-card-list" data-status="{{ column.status }}" aria-label="{{ column.label }} tickets">
         {% for ticket in column.tickets %}
-          <a class="board-card" href="{% url 'ticket-detail' ticket.pk %}">
+          <a class="board-card" href="{% url 'ticket-detail' ticket.pk %}" draggable="true" data-ticket-id="{{ ticket.pk }}">
             <strong>#{{ ticket.pk }} {{ ticket.title }}</strong>
             <span class="pill sla-{{ ticket.sla_state }}">{{ ticket.sla_state_label }}</span>
             <dl>
@@ -57,4 +59,99 @@
     </article>
   {% endfor %}
 </section>
+
+<script>
+  (() => {
+    const board = document.querySelector("[data-reorder-url]");
+    const csrfInput = document.querySelector("#board-csrf-token");
+    if (!board || !csrfInput) return;
+
+    let draggedCard = null;
+
+    function orderedIds(list) {
+      return Array.from(list.querySelectorAll(".board-card")).map((card) => card.dataset.ticketId);
+    }
+
+    function refreshCounts() {
+      document.querySelectorAll(".board-column").forEach((column) => {
+        const count = column.querySelectorAll(".board-card").length;
+        const countBadge = column.querySelector(".board-count");
+        if (countBadge) countBadge.textContent = count;
+      });
+    }
+
+    function insertionTarget(list, y) {
+      const cards = Array.from(list.querySelectorAll(".board-card:not(.dragging)"));
+      return cards.find((card) => y < card.getBoundingClientRect().top + card.offsetHeight / 2) || null;
+    }
+
+    async function persistColumn(list, movedTicketId) {
+      const formData = new FormData();
+      formData.append("status", list.dataset.status);
+      formData.append("moved_ticket_id", movedTicketId);
+      orderedIds(list).forEach((ticketId) => formData.append("ticket_ids", ticketId));
+
+      const response = await fetch(board.dataset.reorderUrl, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-CSRFToken": csrfInput.value,
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      });
+      if (!response.ok) {
+        let message = "Board move was not saved.";
+        try {
+          const payload = await response.json();
+          message = payload.error || message;
+        } catch {
+          message = await response.text() || message;
+        }
+        throw new Error(message);
+      }
+    }
+
+    board.addEventListener("dragstart", (event) => {
+      draggedCard = event.target.closest(".board-card");
+      if (!draggedCard) return;
+      draggedCard.classList.add("dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", draggedCard.dataset.ticketId);
+    });
+
+    board.addEventListener("dragend", () => {
+      if (draggedCard) draggedCard.classList.remove("dragging");
+      draggedCard = null;
+      document.querySelectorAll(".board-card-list.drag-over").forEach((list) => list.classList.remove("drag-over"));
+    });
+
+    board.querySelectorAll(".board-card-list").forEach((list) => {
+      list.addEventListener("dragover", (event) => {
+        if (!draggedCard) return;
+        event.preventDefault();
+        list.classList.add("drag-over");
+        const target = insertionTarget(list, event.clientY);
+        list.insertBefore(draggedCard, target);
+        refreshCounts();
+      });
+
+      list.addEventListener("dragleave", () => {
+        list.classList.remove("drag-over");
+      });
+
+      list.addEventListener("drop", async (event) => {
+        if (!draggedCard) return;
+        event.preventDefault();
+        list.classList.remove("drag-over");
+        const movedTicketId = draggedCard.dataset.ticketId;
+        try {
+          await persistColumn(list, movedTicketId);
+        } catch (error) {
+          alert(error.message);
+          window.location.reload();
+        }
+      });
+    });
+  })();
+</script>
 {% endblock %}

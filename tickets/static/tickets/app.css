@@ -253,6 +253,18 @@ button,
 .board-card-list {
   display: grid;
   gap: 10px;
+  min-height: 56px;
+  transition: background 0.15s ease, outline-color 0.15s ease;
+}
+
+.board-card-list.drag-over {
+  background: #e1ebe4;
+  outline: 2px dashed #94a89b;
+  outline-offset: 4px;
+}
+
+.board-card-list:has(.board-card) .board-empty {
+  display: none;
 }
 
 .board-card {
@@ -261,9 +273,18 @@ button,
   border-radius: 8px;
   box-shadow: var(--shadow);
   color: var(--text);
+  cursor: grab;
   display: grid;
   gap: 9px;
   padding: 12px;
+}
+
+.board-card.dragging {
+  opacity: 0.55;
+}
+
+.board-card:active {
+  cursor: grabbing;
 }
 
 .board-card:hover {

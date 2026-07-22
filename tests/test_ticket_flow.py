@@ -688,6 +688,141 @@ class TicketFlowTests(TestCase):
         self.assertEqual(list(received_column["tickets"]), [triage_ticket])
         self.assertEqual(list(progress_column["tickets"]), [progress_ticket])
 
+    def test_operator_board_orders_tickets_by_board_position(self):
+        later_ticket = Ticket.objects.create(
+            title="Second priority",
+            description="Sort me second.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            board_position=20,
+        )
+        first_ticket = Ticket.objects.create(
+            title="First priority",
+            description="Sort me first.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            board_position=10,
+        )
+        client = Client()
+        client.force_login(self.operator)
+
+        response = client.get(reverse("ticket-board"))
+
+        received_column = next(column for column in response.context["board_columns"] if column["status"] == TicketStatus.RECEIVED)
+        self.assertEqual(list(received_column["tickets"]), [first_ticket, later_ticket])
+
+    def test_operator_can_reorder_tickets_within_board_column(self):
+        first_ticket = Ticket.objects.create(
+            title="First ticket",
+            description="Move me down.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            board_position=10,
+        )
+        second_ticket = Ticket.objects.create(
+            title="Second ticket",
+            description="Move me up.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            board_position=20,
+        )
+        client = Client()
+        client.force_login(self.operator)
+
+        response = client.post(
+            reverse("ticket-board-reorder"),
+            {
+                "status": TicketStatus.RECEIVED,
+                "moved_ticket_id": second_ticket.pk,
+                "ticket_ids": [second_ticket.pk, first_ticket.pk],
+            },
+        )
+
+        first_ticket.refresh_from_db()
+        second_ticket.refresh_from_db()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(second_ticket.board_position, 10)
+        self.assertEqual(first_ticket.board_position, 20)
+        self.assertEqual(LifecycleEvent.objects.count(), 0)
+
+    def test_operator_can_move_ticket_between_board_columns(self):
+        waiting_ticket = Ticket.objects.create(
+            title="Waiting ticket",
+            description="Already waiting.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            status=TicketStatus.WAITING_ON_REPORTER,
+            board_position=10,
+        )
+        moved_ticket = Ticket.objects.create(
+            title="Move into progress",
+            description="Start work.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            board_position=10,
+        )
+        existing_progress_ticket = Ticket.objects.create(
+            title="Already in progress",
+            description="Keep in the column.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            status=TicketStatus.IN_PROGRESS,
+            board_position=10,
+        )
+        client = Client()
+        client.force_login(self.operator)
+
+        response = client.post(
+            reverse("ticket-board-reorder"),
+            {
+                "status": TicketStatus.IN_PROGRESS,
+                "moved_ticket_id": moved_ticket.pk,
+                "ticket_ids": [existing_progress_ticket.pk, moved_ticket.pk],
+            },
+        )
+
+        moved_ticket.refresh_from_db()
+        existing_progress_ticket.refresh_from_db()
+        waiting_ticket.refresh_from_db()
+        event = LifecycleEvent.objects.get(ticket=moved_ticket)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(moved_ticket.status, TicketStatus.IN_PROGRESS)
+        self.assertEqual(moved_ticket.board_position, 20)
+        self.assertEqual(existing_progress_ticket.board_position, 10)
+        self.assertEqual(waiting_ticket.status, TicketStatus.WAITING_ON_REPORTER)
+        self.assertEqual(event.previous_status, TicketStatus.RECEIVED)
+        self.assertEqual(event.new_status, TicketStatus.IN_PROGRESS)
+
+    def test_operator_board_move_respects_blocking_closure_items(self):
+        ticket = Ticket.objects.create(
+            title="Needs verification",
+            description="Do not close yet.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            status=TicketStatus.FIXED,
+        )
+        TicketWorkflowChecklistItem.objects.create(
+            ticket=ticket,
+            title="Verify fix",
+            blocks_closure=True,
+        )
+        client = Client()
+        client.force_login(self.operator)
+
+        response = client.post(
+            reverse("ticket-board-reorder"),
+            {
+                "status": TicketStatus.CLOSED,
+                "moved_ticket_id": ticket.pk,
+                "ticket_ids": [ticket.pk],
+            },
+        )
+
+        ticket.refresh_from_db()
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(ticket.status, TicketStatus.FIXED)
+        self.assertEqual(LifecycleEvent.objects.count(), 0)
+
     def test_operator_board_defaults_to_responsible_department_queue(self):
         security_group = Group.objects.create(name="security-operators")
         self.operator.groups.add(security_group)

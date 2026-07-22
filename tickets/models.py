@@ -406,6 +406,10 @@ class Ticket(models.Model):
         choices=TicketStatus.choices,
         default=TicketStatus.RECEIVED,
     )
+    board_position = models.PositiveIntegerField(
+        default=0,
+        help_text="Operator board ordering within the ticket's current lifecycle status.",
+    )
     reporter = models.ForeignKey(User, on_delete=models.PROTECT, related_name="reported_tickets")
     operator = models.ForeignKey(
         User,
@@ -432,7 +436,7 @@ class Ticket(models.Model):
     class Meta:
         ordering = ["-updated_at", "-created_at"]
         indexes = [
-            models.Index(fields=["status", "-updated_at"]),
+            models.Index(fields=["status", "board_position", "-updated_at"]),
             models.Index(fields=["reporter", "-updated_at"]),
         ]
 
