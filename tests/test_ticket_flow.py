@@ -1377,6 +1377,58 @@ class TicketFlowTests(TestCase):
         self.assertEqual(detail.json()["messages"][0]["body"], ticket.description)
         self.assertIsNotNone(agent_token.last_used_at)
 
+    def test_operations_agent_api_serializes_workflow_checklist_state(self):
+        department = Department.objects.create(name="Security", slug="security")
+        workflow = WorkflowTemplate.objects.create(department=department, name="Security triage")
+        WorkflowChecklistItemTemplate.objects.create(
+            workflow_template=workflow,
+            title="Classify exposure",
+            description="Confirm exposure and access level.",
+            blocks_closure=True,
+            sort_order=10,
+        )
+        WorkflowChecklistItemTemplate.objects.create(
+            workflow_template=workflow,
+            title="Notify owner",
+            description="Tell the system owner what changed.",
+            blocks_closure=False,
+            sort_order=20,
+        )
+        ticket = Ticket.objects.create(
+            title="Checklist API ticket",
+            reporter=self.reporter,
+            affected_system=self.system,
+            department=department,
+            workflow_template=workflow,
+            issue_summary="Security event needs checklist.",
+            reproduction_steps="1. Open event.",
+            expected_outcome="Checklist appears.",
+            actual_outcome="Checklist appears.",
+        )
+        ticket.generate_workflow_checklist()
+        done_item = ticket.workflow_items.get(title="Notify owner")
+        done_item.set_done(is_done=True, actor=self.operator)
+        _, raw_token = self.issue_agent_token(
+            user=self.operator,
+            scopes=[OperationsAgentScope.TICKETS_READ],
+        )
+
+        response = Client().get(
+            reverse("api-ticket-detail", kwargs={"pk": ticket.pk}),
+            HTTP_AUTHORIZATION=f"Bearer {raw_token}",
+        )
+
+        checklist = response.json()["ticket"]["workflow_checklist"]
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(checklist["total"], 2)
+        self.assertEqual(checklist["completed"], 1)
+        self.assertEqual(checklist["open_blocking"], 1)
+        self.assertEqual([item["title"] for item in checklist["items"]], ["Classify exposure", "Notify owner"])
+        self.assertFalse(checklist["items"][0]["is_done"])
+        self.assertTrue(checklist["items"][1]["is_done"])
+        self.assertEqual(checklist["items"][1]["completed_by"], "operator")
+        self.assertIsNotNone(checklist["items"][1]["completed_at"])
+
     def test_operations_agent_api_rejects_hidden_system_tampering(self):
         private_system = System.objects.create(name="Private Lab", slug="private-lab")
         private_system.visible_to_users.add(self.other_reporter)
