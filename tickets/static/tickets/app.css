@@ -391,11 +391,11 @@ th {
   background: #ffffff;
   border-radius: 8px;
   display: flex;
-  height: 82px;
+  height: 164px;
   justify-content: center;
   margin: 0 auto 18px;
   overflow: hidden;
-  width: 82px;
+  width: 164px;
 }
 
 .stack {
