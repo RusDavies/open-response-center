@@ -42,7 +42,7 @@
       </header>
       <div class="board-card-list" data-status="{{ column.status }}" aria-label="{{ column.label }} tickets">
         {% for ticket in column.tickets %}
-          <a class="board-card" href="{% url 'ticket-detail' ticket.pk %}" draggable="true" data-ticket-id="{{ ticket.pk }}">
+          <a class="board-card" href="{% url 'ticket-detail' ticket.pk %}" draggable="false" data-ticket-id="{{ ticket.pk }}">
             <strong>#{{ ticket.pk }} {{ ticket.title }}</strong>
             <span class="pill sla-{{ ticket.sla_state }}">{{ ticket.sla_state_label }}</span>
             <span class="board-card-compact-meta">
@@ -75,7 +75,9 @@
     if (!board || !csrfInput) return;
 
     const densityToggle = document.querySelector("[data-board-density-toggle]");
-    let draggedCard = null;
+    let dragState = null;
+    let suppressNextClick = false;
+    const dragThreshold = 8;
 
     function applyDensity(density) {
       const nextDensity = density === "compact" ? "compact" : "comfortable";
@@ -96,8 +98,8 @@
       });
     }
 
-    function insertionTarget(list, y) {
-      const cards = Array.from(list.querySelectorAll(".board-card:not(.dragging)"));
+    function insertionTarget(list, y, ignoredCard) {
+      const cards = Array.from(list.querySelectorAll(".board-card:not(.dragging)")).filter((card) => card !== ignoredCard);
       return cards.find((card) => y < card.getBoundingClientRect().top + card.offsetHeight / 2) || null;
     }
 
@@ -127,47 +129,110 @@
       }
     }
 
-    board.addEventListener("dragstart", (event) => {
-      draggedCard = event.target.closest(".board-card");
-      if (!draggedCard) return;
-      draggedCard.classList.add("dragging");
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData("text/plain", draggedCard.dataset.ticketId);
-    });
-
-    board.addEventListener("dragend", () => {
-      if (draggedCard) draggedCard.classList.remove("dragging");
-      draggedCard = null;
+    function clearDragOver() {
       document.querySelectorAll(".board-card-list.drag-over").forEach((list) => list.classList.remove("drag-over"));
+    }
+
+    function listFromPoint(x, y) {
+      return document.elementFromPoint(x, y)?.closest(".board-card-list") || null;
+    }
+
+    function startDragging() {
+      if (!dragState || dragState.started) return;
+      dragState.started = true;
+      suppressNextClick = true;
+      dragState.card.classList.add("dragging");
+    }
+
+    function moveDraggedCard(x, y, event) {
+      if (!dragState) return;
+      const deltaX = Math.abs(x - dragState.startX);
+      const deltaY = Math.abs(y - dragState.startY);
+      if (!dragState.started && Math.max(deltaX, deltaY) < dragThreshold) return;
+
+      startDragging();
+      event.preventDefault();
+
+      const targetList = listFromPoint(x, y);
+      if (!targetList) return;
+      clearDragOver();
+      targetList.classList.add("drag-over");
+      targetList.insertBefore(dragState.card, insertionTarget(targetList, y, dragState.card));
+      refreshCounts();
+    }
+
+    async function finishDraggedCard(pointerId) {
+      if (!dragState) return;
+      const state = dragState;
+      dragState = null;
+      clearDragOver();
+      if (Number.isInteger(pointerId) && state.card.hasPointerCapture(pointerId)) {
+        state.card.releasePointerCapture(pointerId);
+      }
+
+      if (!state.started) return;
+
+      state.card.classList.remove("dragging");
+      const list = state.card.closest(".board-card-list");
+      try {
+        await persistColumn(list, state.card.dataset.ticketId);
+      } catch (error) {
+        alert(error.message);
+        window.location.reload();
+      }
+    }
+
+    board.addEventListener("pointerdown", (event) => {
+      if (!["mouse", "pen"].includes(event.pointerType)) return;
+      if (!event.isPrimary || event.button > 0) return;
+      const card = event.target.closest(".board-card");
+      if (!card) return;
+      card.setPointerCapture(event.pointerId);
+      dragState = {
+        card,
+        startX: event.clientX,
+        startY: event.clientY,
+        started: false,
+      };
     });
 
-    board.querySelectorAll(".board-card-list").forEach((list) => {
-      list.addEventListener("dragover", (event) => {
-        if (!draggedCard) return;
-        event.preventDefault();
-        list.classList.add("drag-over");
-        const target = insertionTarget(list, event.clientY);
-        list.insertBefore(draggedCard, target);
-        refreshCounts();
-      });
-
-      list.addEventListener("dragleave", () => {
-        list.classList.remove("drag-over");
-      });
-
-      list.addEventListener("drop", async (event) => {
-        if (!draggedCard) return;
-        event.preventDefault();
-        list.classList.remove("drag-over");
-        const movedTicketId = draggedCard.dataset.ticketId;
-        try {
-          await persistColumn(list, movedTicketId);
-        } catch (error) {
-          alert(error.message);
-          window.location.reload();
-        }
-      });
+    board.addEventListener("pointermove", (event) => {
+      if (!["mouse", "pen"].includes(event.pointerType)) return;
+      moveDraggedCard(event.clientX, event.clientY, event);
     });
+    board.addEventListener("pointerup", (event) => {
+      if (!["mouse", "pen"].includes(event.pointerType)) return;
+      finishDraggedCard(event.pointerId);
+    });
+    board.addEventListener("pointercancel", (event) => {
+      if (!["mouse", "pen"].includes(event.pointerType)) return;
+      finishDraggedCard(event.pointerId);
+    });
+    board.addEventListener("touchstart", (event) => {
+      if (event.touches.length !== 1) return;
+      const card = event.target.closest(".board-card");
+      if (!card) return;
+      const touch = event.touches[0];
+      dragState = {
+        card,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        started: false,
+      };
+    }, { passive: true });
+    document.addEventListener("touchmove", (event) => {
+      if (!dragState) return;
+      if (event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      moveDraggedCard(touch.clientX, touch.clientY, event);
+    }, { passive: false });
+    document.addEventListener("touchend", () => finishDraggedCard(null));
+    document.addEventListener("touchcancel", () => finishDraggedCard(null));
+    board.addEventListener("click", (event) => {
+      if (!suppressNextClick) return;
+      suppressNextClick = false;
+      event.preventDefault();
+    }, true);
 
     applyDensity(window.localStorage.getItem("orc-board-density"));
     if (densityToggle) {

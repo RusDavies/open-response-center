@@ -732,6 +732,7 @@ class TicketFlowTests(TestCase):
         self.assertContains(response, "role=\"switch\"")
         self.assertContains(response, "Compact view")
         self.assertContains(response, "board-card-compact-meta")
+        self.assertContains(response, "draggable=\"false\"")
         self.assertContains(response, "High / OpenClaw Runtime / operator")
 
     def test_operator_can_reorder_tickets_within_board_column(self):
