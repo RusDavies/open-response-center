@@ -18,6 +18,8 @@ documented exception when the public docs clearly describe the intended deployme
 - Confirm `LICENSE` and `SECURITY.md` are present.
 - Run the project test suite.
 - Run the deployed smoke check or document why it is not applicable to the public candidate.
+- Confirm ticket-detail interaction surfaces, including tabs and ticket chat, remain ticket-bound,
+  authenticated, and free of operator-only/private workspace content.
 - Confirm public docs do not include private workspace paths, chat platform channel IDs, user IDs,
   hostnames, credentials, incident data, or private agent/OpenClaw operating notes.
 
@@ -29,6 +31,8 @@ documented exception when the public docs clearly describe the intended deployme
   allowed hosts, CSRF trusted origins, proxy identity headers, backups, and upgrade procedures.
 - Confirm the included Podman Compose path is described as internal/tailnet-first unless a hardened
   production configuration is provided.
+- Review ticket chat and webhook/chat-notification ideas against the internal-first product brief
+  before adding integrations.
 
 ## Release Record
 

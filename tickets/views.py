@@ -245,6 +245,7 @@ def ticket_detail(request, pk: int):
     visible_messages = ticket.messages.select_related("author")
     if not request.user.is_staff:
         visible_messages = visible_messages.filter(is_operator_note=False)
+    chat_messages = visible_messages.order_by("-created_at")[:4]
     knowledge_links = _visible_knowledge_links(ticket, request.user)
 
     return render(
@@ -253,6 +254,7 @@ def ticket_detail(request, pk: int):
         {
             "ticket": ticket,
             "messages": visible_messages,
+            "chat_messages": chat_messages,
             "knowledge_links": knowledge_links,
             "knowledge_link_form": TicketKnowledgeBaseLinkForm(user=request.user) if request.user.is_staff else None,
             "message_form": MessageForm(),

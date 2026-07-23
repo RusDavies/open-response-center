@@ -72,20 +72,21 @@
       <input class="tab-control" type="radio" name="ticket-tabs" id="tab-history">
     {% endif %}
 
-    <div class="tab-list" role="tablist" aria-label="Ticket tasks">
-      <label role="tab" for="tab-report">Report</label>
-      <label role="tab" for="tab-thread">Thread</label>
-      <label role="tab" for="tab-evidence">Evidence</label>
-      <label role="tab" for="tab-knowledge">Knowledge</label>
+    <fieldset class="tab-list" aria-label="Ticket tasks">
+      <legend class="visually-hidden">Ticket tasks</legend>
+      <label for="tab-report">Report</label>
+      <label for="tab-thread">Thread</label>
+      <label for="tab-evidence">Evidence</label>
+      <label for="tab-knowledge">Knowledge</label>
       {% if user.is_staff %}
-        <label role="tab" for="tab-workflow">Workflow</label>
-        <label role="tab" for="tab-incident">Incident</label>
-        <label role="tab" for="tab-history">History</label>
+        <label for="tab-workflow">Workflow</label>
+        <label for="tab-incident">Incident</label>
+        <label for="tab-history">History</label>
       {% endif %}
-    </div>
+    </fieldset>
 
     <div class="tab-panels">
-      <section class="tab-panel tab-report-panel" role="tabpanel">
+      <section class="tab-panel tab-report-panel">
         <h2>Issue report</h2>
         <dl class="issue-report">
           <dt>Summary of issue</dt>
@@ -112,7 +113,7 @@
         {% endif %}
       </section>
 
-      <section class="tab-panel tab-thread-panel" role="tabpanel">
+      <section class="tab-panel tab-thread-panel">
         <h2>Thread</h2>
         {% for message in messages %}
           <article class="thread-message">
@@ -142,7 +143,7 @@
         {% endif %}
       </section>
 
-      <section class="tab-panel tab-evidence-panel" role="tabpanel">
+      <section class="tab-panel tab-evidence-panel">
         <h2>Evidence</h2>
         <div class="guidance-panel compact">
           <h3>Redact before uploading</h3>
@@ -169,7 +170,7 @@
         </form>
       </section>
 
-      <section class="tab-panel tab-knowledge-panel" role="tabpanel">
+      <section class="tab-panel tab-knowledge-panel">
         <h2>Knowledge</h2>
         <ul class="attachment-list">
           {% for link in knowledge_links %}
@@ -195,7 +196,7 @@
       </section>
 
     {% if user.is_staff %}
-      <section class="tab-panel tab-workflow-panel" role="tabpanel">
+      <section class="tab-panel tab-workflow-panel">
         <h2>Workflow</h2>
         <dl>
           <dt>Department</dt>
@@ -225,7 +226,7 @@
           <button type="submit">Save checklist</button>
         </form>
       </section>
-      <section class="tab-panel tab-incident-panel" role="tabpanel">
+      <section class="tab-panel tab-incident-panel">
         <h2>Operational incident</h2>
         <dl>
           <dt>Incident</dt>
@@ -249,7 +250,7 @@
           <button class="primary" type="submit">Create or link incident</button>
         </form>
       </section>
-      <section class="tab-panel tab-history-panel" role="tabpanel">
+      <section class="tab-panel tab-history-panel">
         <h2>Lifecycle</h2>
         <ol class="event-list">
           {% for event in ticket.lifecycle_events.all %}
@@ -266,4 +267,30 @@
     </div>
   </article>
 </section>
+
+<aside class="ticket-chat-widget" aria-labelledby="ticket-chat-title">
+  <div class="ticket-chat-header">
+    <h2 id="ticket-chat-title">Ticket chat</h2>
+    <span class="pill">{{ ticket.get_status_display }}</span>
+  </div>
+  <div class="ticket-chat-messages" aria-live="polite">
+    {% for message in chat_messages %}
+      <article class="ticket-chat-message">
+        <header>
+          <strong>{{ message.author }}</strong>
+          <time>{{ message.created_at|date:"Y-m-d H:i" }}</time>
+        </header>
+        <p>{{ message.body|linebreaksbr }}</p>
+      </article>
+    {% empty %}
+      <p class="empty">No chat messages yet.</p>
+    {% endfor %}
+  </div>
+  <form method="post" action="{% url 'ticket-add-message' ticket.pk %}" class="ticket-chat-form">
+    {% csrf_token %}
+    <label class="visually-hidden" for="ticket-chat-body">Reply in ticket chat</label>
+    <textarea id="ticket-chat-body" name="body" rows="3" placeholder="Reply in ticket chat"></textarea>
+    <button class="primary" type="submit">Send</button>
+  </form>
+</aside>
 {% endblock %}

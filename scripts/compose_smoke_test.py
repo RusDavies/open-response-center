@@ -283,6 +283,8 @@ def submit_ticket(client: SmokeHttpClient) -> int:
     ticket_id = int(match.group("ticket_id"))
     if "Automated Compose smoke test submission." not in body:
         raise SmokeError("Ticket detail page did not render the smoke-test ticket.")
+    if "Ticket chat" not in body or "Reply in ticket chat" not in body:
+        raise SmokeError("Ticket detail page did not render the ticket chat widget.")
     return ticket_id
 
 
@@ -319,6 +321,18 @@ def operator_flow(client: SmokeHttpClient, ticket_id: int) -> None:
     )
     if "Operational incident" not in html.unescape(body):
         raise SmokeError("Operational incident creation did not report success.")
+
+    _, body = client.get(f"/tickets/{ticket_id}/")
+    csrf = parse_form(body).csrf_token()
+    _, body = client.post_form(
+        f"/tickets/{ticket_id}/messages/",
+        {
+            "csrfmiddlewaretoken": csrf,
+            "body": "Compose smoke test exercised the ticket chat path.",
+        },
+    )
+    if "Compose smoke test exercised the ticket chat path." not in body:
+        raise SmokeError("Ticket chat message did not render after posting.")
 
 
 def knowledge_base_flow(client: SmokeHttpClient) -> None:
