@@ -714,6 +714,25 @@ class TicketFlowTests(TestCase):
         received_column = next(column for column in response.context["board_columns"] if column["status"] == TicketStatus.RECEIVED)
         self.assertEqual(list(received_column["tickets"]), [first_ticket, later_ticket])
 
+    def test_operator_board_renders_compact_density_controls(self):
+        Ticket.objects.create(
+            title="Crowded board ticket",
+            description="Compact tile candidate.",
+            reporter=self.reporter,
+            affected_system=self.system,
+            impact=ImpactLevel.HIGH,
+            operator=self.operator,
+        )
+        client = Client()
+        client.force_login(self.operator)
+
+        response = client.get(reverse("ticket-board"))
+
+        self.assertContains(response, "data-board-density=\"comfortable\"")
+        self.assertContains(response, "data-board-density=\"compact\"")
+        self.assertContains(response, "board-card-compact-meta")
+        self.assertContains(response, "High / OpenClaw Runtime / operator")
+
     def test_operator_can_reorder_tickets_within_board_column(self):
         first_ticket = Ticket.objects.create(
             title="First ticket",

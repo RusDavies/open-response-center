@@ -24,6 +24,10 @@
   {% if department %}
     <a class="button" href="{% url 'ticket-board' %}">Clear</a>
   {% endif %}
+  <div class="segmented-control board-density" role="group" aria-label="Board density">
+    <button type="button" data-board-density="comfortable" aria-pressed="true">Comfortable</button>
+    <button type="button" data-board-density="compact" aria-pressed="false">Compact</button>
+  </div>
 </form>
 
 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" id="board-csrf-token">
@@ -40,6 +44,9 @@
           <a class="board-card" href="{% url 'ticket-detail' ticket.pk %}" draggable="true" data-ticket-id="{{ ticket.pk }}">
             <strong>#{{ ticket.pk }} {{ ticket.title }}</strong>
             <span class="pill sla-{{ ticket.sla_state }}">{{ ticket.sla_state_label }}</span>
+            <span class="board-card-compact-meta">
+              {{ ticket.get_impact_display }} / {{ ticket.affected_system|default:"-" }} / {{ ticket.operator|default:"Unassigned" }}
+            </span>
             <dl>
               <dt>Impact</dt>
               <dd>{{ ticket.get_impact_display }}</dd>
@@ -66,7 +73,19 @@
     const csrfInput = document.querySelector("#board-csrf-token");
     if (!board || !csrfInput) return;
 
+    const densityButtons = Array.from(document.querySelectorAll("[data-board-density]"));
     let draggedCard = null;
+
+    function applyDensity(density) {
+      const nextDensity = density === "compact" ? "compact" : "comfortable";
+      board.dataset.density = nextDensity;
+      densityButtons.forEach((button) => {
+        const isActive = button.dataset.boardDensity === nextDensity;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
+      window.localStorage.setItem("orc-board-density", nextDensity);
+    }
 
     function orderedIds(list) {
       return Array.from(list.querySelectorAll(".board-card")).map((card) => card.dataset.ticketId);
@@ -151,6 +170,11 @@
           window.location.reload();
         }
       });
+    });
+
+    applyDensity(window.localStorage.getItem("orc-board-density"));
+    densityButtons.forEach((button) => {
+      button.addEventListener("click", () => applyDensity(button.dataset.boardDensity));
     });
   })();
 </script>
