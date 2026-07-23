@@ -116,16 +116,18 @@ department without changing direct ticket visibility rules.
 - Keep all downloads authorization-checked.
 - Store only hashed operations-agent bearer tokens; the raw token is shown once at creation.
 - Keep operations-agent tokens scoped to the smallest action set the agent needs.
+- Keep the ticket chat widget ticket-bound and backed by reporter-visible `TicketMessage` rows;
+  it must not expose operator-only internal notes or become a general chat system.
 - Record who viewed/downloaded sensitive evidence if practical.
 - Avoid storing secrets in tickets; the new-ticket and evidence-upload screens give reporter-facing redaction guidance.
 
 ## Local MVP Surfaces
 
-- Reporter: ticket list, new ticket form, detail/thread, evidence upload/download.
+- Reporter: ticket list, new ticket form, detail/thread, ticket chat widget, evidence upload/download.
 - Reporter/internal user: published all-internal knowledge-base articles and ticket-linked guidance.
 - Reporter/operator: email preference controls for status-change and thread-message notifications.
 - Operator: all-ticket view, status/lifecycle update, incident/engineering references, internal notes,
-  workflow checklist management, knowledge-base authoring, machine event timeline, and ticket article links.
+  workflow checklist management, ticket chat, knowledge-base authoring, machine event timeline, and ticket article links.
 - Admin: Django admin for users, systems, tickets, messages, attachments, lifecycle events, and notification preferences.
 
 ## Identity Boundary

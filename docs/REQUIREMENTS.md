@@ -12,6 +12,8 @@
 - Blocking workflow checklist items must be completed before an operator can close the ticket.
 - Users can view their submitted reports and current status.
 - Users and operators can participate in a threaded discussion per report.
+- Ticket detail includes a compact ticket-bound chat widget backed by the same reporter-visible
+  thread as the full ticket discussion.
 - Operators can add internal notes hidden from reporters.
 - Operators can update lifecycle state.
 - Operators can see response and resolution SLA state derived from ticket impact.

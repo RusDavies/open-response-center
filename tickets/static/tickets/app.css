@@ -642,10 +642,14 @@ fieldset {
 .tab-list {
   align-items: stretch;
   border-bottom: 1px solid var(--line);
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 16px;
+  padding: 0;
 }
 
 .tab-list label {
@@ -689,6 +693,65 @@ fieldset {
   display: inline-block;
   font-size: 0.88rem;
   padding: 4px 8px;
+}
+
+.ticket-chat-widget {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  bottom: 18px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 12px;
+  max-height: min(520px, calc(100vh - 36px));
+  overflow: hidden;
+  padding: 16px;
+  position: fixed;
+  right: 18px;
+  width: min(360px, calc(100vw - 36px));
+  z-index: 10;
+}
+
+.ticket-chat-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.ticket-chat-header h2 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.ticket-chat-messages {
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.ticket-chat-message {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+
+.ticket-chat-message header {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.ticket-chat-message p {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.ticket-chat-form {
+  display: grid;
+  gap: 10px;
 }
 
 .thread-message {
@@ -861,5 +924,12 @@ dd {
 
   .tab-list label {
     flex: 0 0 auto;
+  }
+
+  .ticket-chat-widget {
+    margin-top: 20px;
+    max-height: none;
+    position: static;
+    width: 100%;
   }
 }

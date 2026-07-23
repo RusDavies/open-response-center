@@ -520,6 +520,8 @@ class TicketFlowTests(TestCase):
         self.assertContains(response, "Evidence")
         self.assertContains(response, "Redact before uploading")
         self.assertContains(response, "Blur private messages, email addresses, phone numbers")
+        self.assertContains(response, "Ticket chat")
+        self.assertContains(response, "Reply in ticket chat")
         self.assertNotContains(response, "Workflow")
 
     def test_reporter_cannot_view_other_reporters_ticket(self):
@@ -1202,6 +1204,30 @@ class TicketFlowTests(TestCase):
         reporter_detail = reporter_client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
         self.assertNotContains(reporter_detail, "Check private remediation notes before replying.")
         self.assertNotContains(reporter_detail, "Internal note")
+
+    def test_ticket_chat_widget_shares_reporter_visible_thread(self):
+        ticket = Ticket.objects.create(
+            title="Widget thread",
+            description="Reporter-visible details.",
+            reporter=self.reporter,
+        )
+        TicketMessage.objects.create(ticket=ticket, author=self.reporter, body="Reporter widget reply.")
+        TicketMessage.objects.create(
+            ticket=ticket,
+            author=self.operator,
+            body="Private widget note.",
+            is_operator_note=True,
+        )
+        client = Client()
+        client.force_login(self.reporter)
+
+        response = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
+
+        self.assertContains(response, "Ticket chat")
+        self.assertContains(response, "Reporter widget reply.")
+        self.assertContains(response, 'id="ticket-chat-body"', html=False)
+        self.assertContains(response, 'name="body"', html=False)
+        self.assertNotContains(response, "Private widget note.")
 
     def test_reporter_cannot_create_operator_internal_note_by_tampering(self):
         ticket = Ticket.objects.create(
