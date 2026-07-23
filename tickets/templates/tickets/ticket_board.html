@@ -24,10 +24,11 @@
   {% if department %}
     <a class="button" href="{% url 'ticket-board' %}">Clear</a>
   {% endif %}
-  <div class="segmented-control board-density" role="group" aria-label="Board density">
-    <button type="button" data-board-density="comfortable" aria-pressed="true">Comfortable</button>
-    <button type="button" data-board-density="compact" aria-pressed="false">Compact</button>
-  </div>
+  <label class="switch-control board-density" for="compact-board-toggle">
+    <input id="compact-board-toggle" type="checkbox" role="switch" data-board-density-toggle>
+    <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+    <span>Compact view</span>
+  </label>
 </form>
 
 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" id="board-csrf-token">
@@ -73,17 +74,13 @@
     const csrfInput = document.querySelector("#board-csrf-token");
     if (!board || !csrfInput) return;
 
-    const densityButtons = Array.from(document.querySelectorAll("[data-board-density]"));
+    const densityToggle = document.querySelector("[data-board-density-toggle]");
     let draggedCard = null;
 
     function applyDensity(density) {
       const nextDensity = density === "compact" ? "compact" : "comfortable";
       board.dataset.density = nextDensity;
-      densityButtons.forEach((button) => {
-        const isActive = button.dataset.boardDensity === nextDensity;
-        button.classList.toggle("active", isActive);
-        button.setAttribute("aria-pressed", String(isActive));
-      });
+      if (densityToggle) densityToggle.checked = nextDensity === "compact";
       window.localStorage.setItem("orc-board-density", nextDensity);
     }
 
@@ -173,9 +170,11 @@
     });
 
     applyDensity(window.localStorage.getItem("orc-board-density"));
-    densityButtons.forEach((button) => {
-      button.addEventListener("click", () => applyDensity(button.dataset.boardDensity));
-    });
+    if (densityToggle) {
+      densityToggle.addEventListener("change", () => {
+        applyDensity(densityToggle.checked ? "compact" : "comfortable");
+      });
+    }
   })();
 </script>
 {% endblock %}

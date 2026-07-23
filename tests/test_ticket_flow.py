@@ -714,7 +714,7 @@ class TicketFlowTests(TestCase):
         received_column = next(column for column in response.context["board_columns"] if column["status"] == TicketStatus.RECEIVED)
         self.assertEqual(list(received_column["tickets"]), [first_ticket, later_ticket])
 
-    def test_operator_board_renders_compact_density_controls(self):
+    def test_operator_board_renders_compact_view_switch(self):
         Ticket.objects.create(
             title="Crowded board ticket",
             description="Compact tile candidate.",
@@ -728,8 +728,9 @@ class TicketFlowTests(TestCase):
 
         response = client.get(reverse("ticket-board"))
 
-        self.assertContains(response, "data-board-density=\"comfortable\"")
-        self.assertContains(response, "data-board-density=\"compact\"")
+        self.assertContains(response, "data-board-density-toggle")
+        self.assertContains(response, "role=\"switch\"")
+        self.assertContains(response, "Compact view")
         self.assertContains(response, "board-card-compact-meta")
         self.assertContains(response, "High / OpenClaw Runtime / operator")
 
