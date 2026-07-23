@@ -598,7 +598,8 @@ fieldset {
   gap: 10px;
 }
 
-.detail-grid {
+.detail-grid,
+.ticket-workspace {
   align-items: start;
   display: grid;
   gap: 20px;
@@ -606,13 +607,88 @@ fieldset {
 }
 
 .main-flow,
-.side-panel section {
+.side-panel section,
+.pinned-ticket-state section,
+.tab-panel {
   padding: 20px;
 }
 
 .side-panel {
   display: grid;
   gap: 16px;
+}
+
+.ticket-workspace {
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+}
+
+.pinned-ticket-state {
+  display: grid;
+  gap: 16px;
+  position: sticky;
+  top: 82px;
+}
+
+.ticket-task-tabs {
+  min-width: 0;
+}
+
+.tab-control {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tab-list {
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.tab-list label {
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 10px 12px;
+}
+
+.tab-list label:hover,
+#tab-report:checked ~ .tab-list label[for="tab-report"],
+#tab-thread:checked ~ .tab-list label[for="tab-thread"],
+#tab-evidence:checked ~ .tab-list label[for="tab-evidence"],
+#tab-knowledge:checked ~ .tab-list label[for="tab-knowledge"],
+#tab-workflow:checked ~ .tab-list label[for="tab-workflow"],
+#tab-incident:checked ~ .tab-list label[for="tab-incident"],
+#tab-history:checked ~ .tab-list label[for="tab-history"] {
+  background: #f8faf8;
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.tab-panel {
+  display: none;
+}
+
+#tab-report:checked ~ .tab-panels .tab-report-panel,
+#tab-thread:checked ~ .tab-panels .tab-thread-panel,
+#tab-evidence:checked ~ .tab-panels .tab-evidence-panel,
+#tab-knowledge:checked ~ .tab-panels .tab-knowledge-panel,
+#tab-workflow:checked ~ .tab-panels .tab-workflow-panel,
+#tab-incident:checked ~ .tab-panels .tab-incident-panel,
+#tab-history:checked ~ .tab-panels .tab-history-panel {
+  display: block;
+}
+
+.status.compact {
+  display: inline-block;
+  font-size: 0.88rem;
+  padding: 4px 8px;
 }
 
 .thread-message {
@@ -769,7 +845,21 @@ dd {
     gap: 12px;
   }
 
-  .detail-grid {
+  .detail-grid,
+  .ticket-workspace {
     grid-template-columns: 1fr;
+  }
+
+  .pinned-ticket-state {
+    position: static;
+  }
+
+  .tab-list {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .tab-list label {
+    flex: 0 0 auto;
   }
 }

@@ -15,55 +15,23 @@
   <span class="status">{{ ticket.get_status_display }}</span>
 </section>
 
-<section class="detail-grid">
-  <article class="main-flow">
-    <h2>Issue report</h2>
-    <dl class="issue-report">
-      <dt>Summary of issue</dt>
-      <dd>{{ ticket.issue_summary|default:ticket.description|linebreaksbr }}</dd>
-      <dt>Steps to reproduce</dt>
-      <dd>{{ ticket.reproduction_steps|default:"-"|linebreaksbr }}</dd>
-      <dt>Expected outcome</dt>
-      <dd>{{ ticket.expected_outcome|default:"-"|linebreaksbr }}</dd>
-      <dt>Actual outcome</dt>
-      <dd>{{ ticket.actual_outcome|default:"-"|linebreaksbr }}</dd>
-      {% if ticket.additional_context %}
-        <dt>Additional context</dt>
-        <dd>{{ ticket.additional_context|linebreaksbr }}</dd>
-      {% endif %}
-    </dl>
-    {% if ticket.intake_field_values %}
-      <h2>Department intake</h2>
-      <dl class="issue-report">
-        {% for field in ticket.intake_field_values.values %}
-          <dt>{{ field.label }}</dt>
-          <dd>{{ field.display_value|default:field.value|linebreaksbr }}</dd>
-        {% endfor %}
+<section class="ticket-workspace">
+  <aside class="pinned-ticket-state" aria-label="Pinned ticket state">
+    <section>
+      <h2>Critical state</h2>
+      <dl>
+        <dt>Status</dt>
+        <dd><span class="status compact">{{ ticket.get_status_display }}</span></dd>
+        <dt>Priority</dt>
+        <dd>{{ ticket.get_impact_display }} impact</dd>
+        <dt>Assignee</dt>
+        <dd>{{ ticket.operator|default:"Unassigned" }}</dd>
+        <dt>Department</dt>
+        <dd>{{ ticket.department|default:"Unassigned" }}</dd>
+        <dt>Incident</dt>
+        <dd>{{ ticket.incident_reference|default:"-" }}</dd>
       </dl>
-    {% endif %}
-
-    <h2>Thread</h2>
-    {% for message in messages %}
-      <article class="thread-message">
-        <header>
-          <strong>{{ message.author }}</strong>
-          {% if message.is_operator_note %}<span class="note-badge">Internal note</span>{% endif %}
-          <time>{{ message.created_at|date:"Y-m-d H:i" }}</time>
-        </header>
-        <p>{{ message.body|linebreaksbr }}</p>
-      </article>
-    {% empty %}
-      <p class="empty">No messages yet.</p>
-    {% endfor %}
-
-    <form method="post" action="{% url 'ticket-add-message' ticket.pk %}" class="stack reply-form">
-      {% csrf_token %}
-      {{ message_form.as_p }}
-      <button class="primary" type="submit">Add reply</button>
-    </form>
-  </article>
-
-  <aside class="side-panel">
+    </section>
     <section>
       <h2>SLA</h2>
       {% with sla=ticket.sla_summary %}
@@ -81,83 +49,153 @@
         </dl>
       {% endwith %}
     </section>
-
-    <section>
-      <h2>Evidence</h2>
-      <div class="guidance-panel compact">
-        <h3>Redact before uploading</h3>
-        <ul>
-          <li>Remove passwords, tokens, API keys, session cookies, and recovery codes.</li>
-          <li>Blur private messages, email addresses, phone numbers, and unrelated customer data.</li>
-          <li>Keep timestamps, error text, request IDs, and file names when they help operators reproduce the issue.</li>
-        </ul>
-      </div>
-      <ul class="attachment-list">
-        {% for attachment in ticket.attachments.all %}
-          <li>
-            <a href="{% url 'attachment-download' attachment.pk %}">{{ attachment.original_name }}</a>
-            <span>{{ attachment.size_bytes|filesizeformat }}</span>
-          </li>
-        {% empty %}
-          <li class="empty">No attachments.</li>
-        {% endfor %}
-      </ul>
-      <form method="post" enctype="multipart/form-data" action="{% url 'ticket-add-attachment' ticket.pk %}">
-        {% csrf_token %}
-        {{ attachment_form.as_p }}
-        <button type="submit">Upload</button>
-      </form>
-    </section>
-
-    <section>
-      <h2>Links</h2>
-      <dl>
-        <dt>Incident</dt>
-        <dd>{{ ticket.incident_reference|default:"-" }}</dd>
-        <dt>Engineering</dt>
-        <dd>{{ ticket.engineering_reference|default:"-" }}</dd>
-        <dt>Operator</dt>
-        <dd>{{ ticket.operator|default:"Unassigned" }}</dd>
-      </dl>
-      {% if ticket.operational_incidents.all %}
-        <ul class="attachment-list">
-          {% for incident in ticket.operational_incidents.all %}
-            <li>
-              <span>{{ incident.reference }}</span>
-              <span>{{ incident.get_backend_display }}</span>
-            </li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    </section>
-
-    <section>
-      <h2>Knowledge</h2>
-      <ul class="attachment-list">
-        {% for link in knowledge_links %}
-          <li>
-            <a href="{{ link.article.get_absolute_url }}">{{ link.article.title }}</a>
-            {% if link.note %}<span>{{ link.note }}</span>{% endif %}
-          </li>
-        {% empty %}
-          <li class="empty">No linked articles.</li>
-        {% endfor %}
-      </ul>
-      {% if user.is_staff %}
-        <form method="post" action="{% url 'ticket-link-knowledge-base' ticket.pk %}" class="stack">
-          {% csrf_token %}
-          {{ knowledge_link_form.as_p }}
-          <button type="submit">Link article</button>
-        </form>
-        <form method="post" action="{% url 'ticket-draft-knowledge-base' ticket.pk %}" class="stack split-action">
-          {% csrf_token %}
-          <button type="submit">Draft from ticket</button>
-        </form>
-      {% endif %}
-    </section>
-
     {% if user.is_staff %}
       <section>
+        <h2>Operator update</h2>
+        <form method="post" action="{% url 'operator-update' ticket.pk %}" class="stack">
+          {% csrf_token %}
+          {{ operator_form.as_p }}
+          <button class="primary" type="submit">Save update</button>
+        </form>
+      </section>
+    {% endif %}
+  </aside>
+
+  <article class="ticket-task-tabs">
+    <input class="tab-control" type="radio" name="ticket-tabs" id="tab-report" checked>
+    <input class="tab-control" type="radio" name="ticket-tabs" id="tab-thread">
+    <input class="tab-control" type="radio" name="ticket-tabs" id="tab-evidence">
+    <input class="tab-control" type="radio" name="ticket-tabs" id="tab-knowledge">
+    {% if user.is_staff %}
+      <input class="tab-control" type="radio" name="ticket-tabs" id="tab-workflow">
+      <input class="tab-control" type="radio" name="ticket-tabs" id="tab-incident">
+      <input class="tab-control" type="radio" name="ticket-tabs" id="tab-history">
+    {% endif %}
+
+    <div class="tab-list" role="tablist" aria-label="Ticket tasks">
+      <label role="tab" for="tab-report">Report</label>
+      <label role="tab" for="tab-thread">Thread</label>
+      <label role="tab" for="tab-evidence">Evidence</label>
+      <label role="tab" for="tab-knowledge">Knowledge</label>
+      {% if user.is_staff %}
+        <label role="tab" for="tab-workflow">Workflow</label>
+        <label role="tab" for="tab-incident">Incident</label>
+        <label role="tab" for="tab-history">History</label>
+      {% endif %}
+    </div>
+
+    <div class="tab-panels">
+      <section class="tab-panel tab-report-panel" role="tabpanel">
+        <h2>Issue report</h2>
+        <dl class="issue-report">
+          <dt>Summary of issue</dt>
+          <dd>{{ ticket.issue_summary|default:ticket.description|linebreaksbr }}</dd>
+          <dt>Steps to reproduce</dt>
+          <dd>{{ ticket.reproduction_steps|default:"-"|linebreaksbr }}</dd>
+          <dt>Expected outcome</dt>
+          <dd>{{ ticket.expected_outcome|default:"-"|linebreaksbr }}</dd>
+          <dt>Actual outcome</dt>
+          <dd>{{ ticket.actual_outcome|default:"-"|linebreaksbr }}</dd>
+          {% if ticket.additional_context %}
+            <dt>Additional context</dt>
+            <dd>{{ ticket.additional_context|linebreaksbr }}</dd>
+          {% endif %}
+        </dl>
+        {% if ticket.intake_field_values %}
+          <h2>Department intake</h2>
+          <dl class="issue-report">
+            {% for field in ticket.intake_field_values.values %}
+              <dt>{{ field.label }}</dt>
+              <dd>{{ field.display_value|default:field.value|linebreaksbr }}</dd>
+            {% endfor %}
+          </dl>
+        {% endif %}
+      </section>
+
+      <section class="tab-panel tab-thread-panel" role="tabpanel">
+        <h2>Thread</h2>
+        {% for message in messages %}
+          <article class="thread-message">
+            <header>
+              <strong>{{ message.author }}</strong>
+              {% if message.is_operator_note %}<span class="note-badge">Internal note</span>{% endif %}
+              <time>{{ message.created_at|date:"Y-m-d H:i" }}</time>
+            </header>
+            <p>{{ message.body|linebreaksbr }}</p>
+          </article>
+        {% empty %}
+          <p class="empty">No messages yet.</p>
+        {% endfor %}
+
+        <form method="post" action="{% url 'ticket-add-message' ticket.pk %}" class="stack reply-form">
+          {% csrf_token %}
+          {{ message_form.as_p }}
+          <button class="primary" type="submit">Add reply</button>
+        </form>
+        {% if user.is_staff %}
+          <form method="post" action="{% url 'ticket-add-message' ticket.pk %}" class="stack split-action">
+            {% csrf_token %}
+            <input type="hidden" name="is_operator_note" value="1">
+            {{ internal_note_form.body.as_field_group }}
+            <button type="submit">Add internal note</button>
+          </form>
+        {% endif %}
+      </section>
+
+      <section class="tab-panel tab-evidence-panel" role="tabpanel">
+        <h2>Evidence</h2>
+        <div class="guidance-panel compact">
+          <h3>Redact before uploading</h3>
+          <ul>
+            <li>Remove passwords, tokens, API keys, session cookies, and recovery codes.</li>
+            <li>Blur private messages, email addresses, phone numbers, and unrelated customer data.</li>
+            <li>Keep timestamps, error text, request IDs, and file names when they help operators reproduce the issue.</li>
+          </ul>
+        </div>
+        <ul class="attachment-list">
+          {% for attachment in ticket.attachments.all %}
+            <li>
+              <a href="{% url 'attachment-download' attachment.pk %}">{{ attachment.original_name }}</a>
+              <span>{{ attachment.size_bytes|filesizeformat }}</span>
+            </li>
+          {% empty %}
+            <li class="empty">No attachments.</li>
+          {% endfor %}
+        </ul>
+        <form method="post" enctype="multipart/form-data" action="{% url 'ticket-add-attachment' ticket.pk %}">
+          {% csrf_token %}
+          {{ attachment_form.as_p }}
+          <button type="submit">Upload</button>
+        </form>
+      </section>
+
+      <section class="tab-panel tab-knowledge-panel" role="tabpanel">
+        <h2>Knowledge</h2>
+        <ul class="attachment-list">
+          {% for link in knowledge_links %}
+            <li>
+              <a href="{{ link.article.get_absolute_url }}">{{ link.article.title }}</a>
+              {% if link.note %}<span>{{ link.note }}</span>{% endif %}
+            </li>
+          {% empty %}
+            <li class="empty">No linked articles.</li>
+          {% endfor %}
+        </ul>
+        {% if user.is_staff %}
+          <form method="post" action="{% url 'ticket-link-knowledge-base' ticket.pk %}" class="stack">
+            {% csrf_token %}
+            {{ knowledge_link_form.as_p }}
+            <button type="submit">Link article</button>
+          </form>
+          <form method="post" action="{% url 'ticket-draft-knowledge-base' ticket.pk %}" class="stack split-action">
+            {% csrf_token %}
+            <button type="submit">Draft from ticket</button>
+          </form>
+        {% endif %}
+      </section>
+
+    {% if user.is_staff %}
+      <section class="tab-panel tab-workflow-panel" role="tabpanel">
         <h2>Workflow</h2>
         <dl>
           <dt>Department</dt>
@@ -187,32 +225,31 @@
           <button type="submit">Save checklist</button>
         </form>
       </section>
-      <section>
+      <section class="tab-panel tab-incident-panel" role="tabpanel">
         <h2>Operational incident</h2>
+        <dl>
+          <dt>Incident</dt>
+          <dd>{{ ticket.incident_reference|default:"-" }}</dd>
+          <dt>Engineering</dt>
+          <dd>{{ ticket.engineering_reference|default:"-" }}</dd>
+        </dl>
+        {% if ticket.operational_incidents.all %}
+          <ul class="attachment-list">
+            {% for incident in ticket.operational_incidents.all %}
+              <li>
+                <span>{{ incident.reference }}</span>
+                <span>{{ incident.get_backend_display }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
         <form method="post" action="{% url 'ticket-create-operational-incident' ticket.pk %}" class="stack">
           {% csrf_token %}
           {{ incident_form.as_p }}
           <button class="primary" type="submit">Create or link incident</button>
         </form>
       </section>
-      <section>
-        <h2>Internal note</h2>
-        <form method="post" action="{% url 'ticket-add-message' ticket.pk %}" class="stack">
-          {% csrf_token %}
-          <input type="hidden" name="is_operator_note" value="1">
-          {{ internal_note_form.body.as_field_group }}
-          <button type="submit">Add internal note</button>
-        </form>
-      </section>
-      <section>
-        <h2>Operator update</h2>
-        <form method="post" action="{% url 'operator-update' ticket.pk %}" class="stack">
-          {% csrf_token %}
-          {{ operator_form.as_p }}
-          <button class="primary" type="submit">Save update</button>
-        </form>
-      </section>
-      <section>
+      <section class="tab-panel tab-history-panel" role="tabpanel">
         <h2>Lifecycle</h2>
         <ol class="event-list">
           {% for event in ticket.lifecycle_events.all %}
@@ -226,6 +263,7 @@
         </ol>
       </section>
     {% endif %}
-  </aside>
+    </div>
+  </article>
 </section>
 {% endblock %}

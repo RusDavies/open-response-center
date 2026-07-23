@@ -514,8 +514,13 @@ class TicketFlowTests(TestCase):
         self.assertContains(response, "Expected outcome")
         self.assertContains(response, "Actual outcome")
         self.assertContains(response, "Dashboard count is wrong.")
+        self.assertContains(response, "Critical state")
+        self.assertContains(response, "Report")
+        self.assertContains(response, "Thread")
+        self.assertContains(response, "Evidence")
         self.assertContains(response, "Redact before uploading")
         self.assertContains(response, "Blur private messages, email addresses, phone numbers")
+        self.assertNotContains(response, "Workflow")
 
     def test_reporter_cannot_view_other_reporters_ticket(self):
         ticket = Ticket.objects.create(
@@ -1188,6 +1193,9 @@ class TicketFlowTests(TestCase):
         operator_detail = operator_client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
         self.assertContains(operator_detail, "Check private remediation notes before replying.")
         self.assertContains(operator_detail, "Internal note")
+        self.assertContains(operator_detail, "Workflow")
+        self.assertContains(operator_detail, "Incident")
+        self.assertContains(operator_detail, "History")
 
         reporter_client = Client()
         reporter_client.force_login(self.reporter)
