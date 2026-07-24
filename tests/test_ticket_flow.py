@@ -1039,6 +1039,25 @@ class TicketFlowTests(TestCase):
         self.assertEqual(ticket.sla_response_due_at, ticket.created_at + timedelta(minutes=30))
         self.assertEqual(ticket.sla_resolution_due_at, ticket.created_at + timedelta(minutes=90))
 
+    def test_breached_sla_is_labeled_late_in_operator_ui(self):
+        ticket = Ticket.objects.create(
+            title="Old critical ticket",
+            description="Something is broken.",
+            reporter=self.reporter,
+            impact=ImpactLevel.CRITICAL,
+        )
+        Ticket.objects.filter(pk=ticket.pk).update(created_at=timezone.now() - timedelta(hours=2))
+        client = Client()
+        client.force_login(self.operator)
+
+        list_response = client.get(reverse("ticket-list"))
+        board_response = client.get(reverse("ticket-board"))
+        detail_response = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
+
+        self.assertContains(list_response, '<span class="pill sla-breached">Late</span>', html=True)
+        self.assertContains(board_response, '<span class="pill sla-breached">Late</span>', html=True)
+        self.assertContains(detail_response, '<span class="pill sla-breached">Late</span>', html=True)
+
     def test_sla_report_command_reports_breached_open_tickets(self):
         ticket = Ticket.objects.create(
             title="Old critical ticket",

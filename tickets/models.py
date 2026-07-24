@@ -594,6 +594,8 @@ class Ticket(models.Model):
         return "on_track"
 
     def _sla_state_label(self, state: str) -> str:
+        if state == "breached":
+            return "Late"
         return state.replace("_", " ").title()
 
     def transition_to(self, *, status: str, actor: User, note: str = "") -> None:
