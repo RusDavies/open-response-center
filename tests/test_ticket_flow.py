@@ -439,6 +439,7 @@ class TicketFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Open Response Center")
         self.assertContains(response, "ORC")
+        self.assertContains(response, "orc-mascot.png")
         self.assertNotContains(response, "redshieldknight-header.svg")
         self.assertNotContains(response, "redshieldknight-shield.svg")
 

@@ -536,11 +536,11 @@ th {
   background: #ffffff;
   border-radius: 8px;
   display: flex;
-  height: 164px;
+  height: 88px;
   justify-content: center;
   margin: 0 auto 18px;
   overflow: hidden;
-  width: 164px;
+  width: 88px;
 }
 
 .stack {
