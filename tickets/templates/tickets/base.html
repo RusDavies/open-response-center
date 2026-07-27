@@ -16,8 +16,8 @@
       <span class="visually-hidden">ORC</span>
       <span>Open Response Center</span>
     </a>
-    <nav>
-      {% if user.is_authenticated %}
+    {% if user.is_authenticated %}
+      <nav class="desktop-nav" aria-label="Primary navigation">
         <a href="{% url 'ticket-create' %}">New ticket</a>
         <a href="{% url 'knowledge-base-list' %}">Knowledge base</a>
         <a href="{% url 'notification-preferences' %}">Email preferences</a>
@@ -29,8 +29,29 @@
           {% csrf_token %}
           <button type="submit">Sign out</button>
         </form>
-      {% endif %}
-    </nav>
+      </nav>
+      <div class="mobile-nav">
+        <a class="button primary" href="{% url 'ticket-create' %}">New ticket</a>
+        <details class="nav-menu">
+          <summary aria-label="Open navigation menu">
+            <span aria-hidden="true"></span>
+            <span class="visually-hidden">Menu</span>
+          </summary>
+          <nav aria-label="Mobile navigation">
+            <a href="{% url 'knowledge-base-list' %}">Knowledge base</a>
+            <a href="{% url 'notification-preferences' %}">Email preferences</a>
+            {% if user.is_staff %}
+              <a href="{% url 'ticket-board' %}">Board</a>
+              <a href="{% url 'admin:index' %}">Admin</a>
+            {% endif %}
+            <form method="post" action="{% url 'logout' %}">
+              {% csrf_token %}
+              <button type="submit">Sign out</button>
+            </form>
+          </nav>
+        </details>
+      </div>
+    {% endif %}
   </header>
   <main class="page">
     {% if messages %}

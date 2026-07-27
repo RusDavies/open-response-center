@@ -56,6 +56,7 @@ a:hover {
   justify-content: space-between;
   min-height: 72px;
   padding: 0 24px;
+  position: relative;
 }
 
 .brand {
@@ -86,7 +87,7 @@ a:hover {
   width: 100%;
 }
 
-.topbar nav {
+.desktop-nav {
   align-items: center;
   display: flex;
   gap: 16px;
@@ -110,6 +111,109 @@ a:hover {
 .topbar button:hover {
   background: rgb(255 255 255 / 12%);
   text-decoration: none;
+}
+
+.mobile-nav {
+  align-items: center;
+  display: none;
+  gap: 10px;
+}
+
+.nav-menu {
+  position: relative;
+}
+
+.nav-menu summary {
+  align-items: center;
+  background: transparent;
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  height: 40px;
+  justify-content: center;
+  list-style: none;
+  width: 44px;
+}
+
+.nav-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-menu summary span[aria-hidden="true"],
+.nav-menu summary span[aria-hidden="true"]::before,
+.nav-menu summary span[aria-hidden="true"]::after {
+  background: white;
+  border-radius: 2px;
+  content: "";
+  display: block;
+  height: 2px;
+  width: 18px;
+}
+
+.nav-menu summary span[aria-hidden="true"] {
+  position: relative;
+}
+
+.nav-menu summary span[aria-hidden="true"]::before,
+.nav-menu summary span[aria-hidden="true"]::after {
+  left: 0;
+  position: absolute;
+}
+
+.nav-menu summary span[aria-hidden="true"]::before {
+  top: -6px;
+}
+
+.nav-menu summary span[aria-hidden="true"]::after {
+  top: 6px;
+}
+
+.nav-menu summary:hover {
+  background: rgb(255 255 255 / 12%);
+}
+
+.nav-menu nav {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+  padding: 8px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+}
+
+.nav-menu nav a,
+.nav-menu nav button {
+  border-radius: 6px;
+  color: var(--text);
+  justify-content: flex-start;
+  min-height: 40px;
+  padding: 9px 10px;
+  width: 100%;
+}
+
+.nav-menu nav a:hover,
+.nav-menu nav button:hover {
+  background: #eef3ef;
+  text-decoration: none;
+}
+
+.nav-menu nav form {
+  border-top: 1px solid var(--line);
+  display: block;
+  margin-top: 4px;
+  padding-top: 6px;
+}
+
+.nav-menu nav button {
+  background: transparent;
+  border-color: transparent;
 }
 
 .page {
@@ -895,17 +999,47 @@ dd {
 }
 
 @media (max-width: 820px) {
-  .topbar,
   .page-heading,
   .ticket-header {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .topbar nav {
-    align-items: flex-start;
-    flex-wrap: wrap;
+  .topbar {
     gap: 12px;
+    min-height: 64px;
+    padding: 10px 14px;
+  }
+
+  .brand {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .brand > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .brand-mark {
+    flex: 0 0 38px;
+    height: 38px;
+    width: 38px;
+  }
+
+  .desktop-nav {
+    display: none;
+  }
+
+  .mobile-nav {
+    display: inline-flex;
+    flex: 0 0 auto;
+  }
+
+  .mobile-nav .primary {
+    min-height: 40px;
+    white-space: nowrap;
   }
 
   .detail-grid,

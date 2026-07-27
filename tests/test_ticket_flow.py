@@ -443,6 +443,31 @@ class TicketFlowTests(TestCase):
         self.assertNotContains(response, "redshieldknight-header.svg")
         self.assertNotContains(response, "redshieldknight-shield.svg")
 
+    def test_authenticated_layout_includes_compact_mobile_navigation(self):
+        client = Client()
+        client.force_login(self.reporter)
+
+        response = client.get(reverse("ticket-list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="desktop-nav"')
+        self.assertContains(response, 'class="mobile-nav"')
+        self.assertContains(response, 'class="nav-menu"')
+        self.assertContains(response, reverse("ticket-create"))
+        self.assertContains(response, reverse("knowledge-base-list"))
+        self.assertContains(response, reverse("notification-preferences"))
+        self.assertNotContains(response, reverse("admin:index"))
+
+    def test_staff_layout_keeps_admin_in_navigation(self):
+        client = Client()
+        client.force_login(self.operator)
+
+        response = client.get(reverse("ticket-list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("ticket-board"))
+        self.assertContains(response, reverse("admin:index"))
+
     def test_remote_user_header_is_ignored_by_default(self):
         User = get_user_model()
 
