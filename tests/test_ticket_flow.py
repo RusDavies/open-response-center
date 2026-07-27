@@ -453,6 +453,7 @@ class TicketFlowTests(TestCase):
         self.assertContains(response, 'class="desktop-nav"')
         self.assertContains(response, 'class="mobile-nav"')
         self.assertContains(response, 'class="nav-menu"')
+        self.assertContains(response, 'class="button primary desktop-page-action"')
         self.assertContains(response, reverse("ticket-create"))
         self.assertContains(response, reverse("knowledge-base-list"))
         self.assertContains(response, reverse("notification-preferences"))

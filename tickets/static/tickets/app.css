@@ -1042,6 +1042,10 @@ dd {
     white-space: nowrap;
   }
 
+  .desktop-page-action {
+    display: none;
+  }
+
   .detail-grid,
   .ticket-workspace {
     grid-template-columns: 1fr;

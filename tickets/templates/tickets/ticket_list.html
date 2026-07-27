@@ -8,7 +8,7 @@
     <h1>{% if user.is_staff %}All tickets{% else %}My tickets{% endif %}</h1>
     <p>Track submitted issues, evidence, replies, and lifecycle state.</p>
   </div>
-  <a class="button primary" href="{% url 'ticket-create' %}">New ticket</a>
+  <a class="button primary desktop-page-action" href="{% url 'ticket-create' %}">New ticket</a>
 </section>
 
 {% if user.is_staff %}
