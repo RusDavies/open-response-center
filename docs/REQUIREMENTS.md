@@ -12,7 +12,7 @@
 - Blocking workflow checklist items must be completed before an operator can close the ticket.
 - Users can view their submitted reports and current status.
 - Users and operators can participate in a threaded discussion per report.
-- Ticket detail uses the thread tab as the single ticket-bound discussion surface.
+- Ticket detail uses a single ticket timeline tab for the original report and follow-up discussion.
 - Operators can add internal notes hidden from reporters.
 - Operators can update lifecycle state.
 - Operators can see response and resolution SLA state derived from ticket impact.

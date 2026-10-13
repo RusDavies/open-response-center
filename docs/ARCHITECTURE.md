@@ -123,7 +123,7 @@ department without changing direct ticket visibility rules.
 
 ## Local MVP Surfaces
 
-- Reporter: ticket list, new ticket form, detail/thread, evidence upload/download.
+- Reporter: ticket list, new ticket form, ticket timeline, evidence upload/download.
 - Reporter/internal user: published all-internal knowledge-base articles and ticket-linked guidance.
 - Reporter/operator: email preference controls for status-change and thread-message notifications.
 - Operator: all-ticket view, status/lifecycle update, incident/engineering references, internal notes,

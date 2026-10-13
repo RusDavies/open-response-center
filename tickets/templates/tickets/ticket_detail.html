@@ -75,8 +75,7 @@
   </aside>
 
   <article class="ticket-task-tabs">
-    <input class="tab-control" type="radio" name="ticket-tabs" id="tab-report" checked>
-    <input class="tab-control" type="radio" name="ticket-tabs" id="tab-thread">
+    <input class="tab-control" type="radio" name="ticket-tabs" id="tab-ticket" checked>
     <input class="tab-control" type="radio" name="ticket-tabs" id="tab-evidence">
     <input class="tab-control" type="radio" name="ticket-tabs" id="tab-knowledge">
     {% if user.is_staff %}
@@ -87,8 +86,7 @@
 
     <fieldset class="tab-list" aria-label="Ticket tasks">
       <legend class="visually-hidden">Ticket tasks</legend>
-      <label for="tab-report">Report</label>
-      <label for="tab-thread">Thread</label>
+      <label for="tab-ticket">Ticket</label>
       <label for="tab-evidence">Evidence</label>
       <label for="tab-knowledge">Knowledge</label>
       {% if user.is_staff %}
@@ -99,37 +97,43 @@
     </fieldset>
 
     <div class="tab-panels">
-      <section class="tab-panel tab-report-panel">
-        <h2>Issue report</h2>
-        <dl class="issue-report">
-          <dt>Summary of issue</dt>
-          <dd>{{ ticket.issue_summary|default:ticket.description|linebreaksbr }}</dd>
-          <dt>Steps to reproduce</dt>
-          <dd>{{ ticket.reproduction_steps|default:"-"|linebreaksbr }}</dd>
-          <dt>Expected outcome</dt>
-          <dd>{{ ticket.expected_outcome|default:"-"|linebreaksbr }}</dd>
-          <dt>Actual outcome</dt>
-          <dd>{{ ticket.actual_outcome|default:"-"|linebreaksbr }}</dd>
-          {% if ticket.additional_context %}
-            <dt>Additional context</dt>
-            <dd>{{ ticket.additional_context|linebreaksbr }}</dd>
-          {% endif %}
-        </dl>
-        {% if ticket.intake_field_values %}
-          <h2>Department intake</h2>
+      <section class="tab-panel tab-ticket-panel">
+        <h2>Ticket</h2>
+        <article class="timeline-item issue-report-item">
+          <header>
+            <div>
+              <strong>Issue report</strong>
+              <p>{{ ticket.reporter }} opened this ticket</p>
+            </div>
+            <time>{{ ticket.created_at|date:"Y-m-d H:i" }}</time>
+          </header>
           <dl class="issue-report">
-            {% for field in ticket.intake_field_values.values %}
-              <dt>{{ field.label }}</dt>
-              <dd>{{ field.display_value|default:field.value|linebreaksbr }}</dd>
-            {% endfor %}
+            <dt>Summary of issue</dt>
+            <dd>{{ ticket.issue_summary|default:ticket.description|linebreaksbr }}</dd>
+            <dt>Steps to reproduce</dt>
+            <dd>{{ ticket.reproduction_steps|default:"-"|linebreaksbr }}</dd>
+            <dt>Expected outcome</dt>
+            <dd>{{ ticket.expected_outcome|default:"-"|linebreaksbr }}</dd>
+            <dt>Actual outcome</dt>
+            <dd>{{ ticket.actual_outcome|default:"-"|linebreaksbr }}</dd>
+            {% if ticket.additional_context %}
+              <dt>Additional context</dt>
+              <dd>{{ ticket.additional_context|linebreaksbr }}</dd>
+            {% endif %}
           </dl>
-        {% endif %}
-      </section>
+          {% if ticket.intake_field_values %}
+            <h3>Department intake</h3>
+            <dl class="issue-report">
+              {% for field in ticket.intake_field_values.values %}
+                <dt>{{ field.label }}</dt>
+                <dd>{{ field.display_value|default:field.value|linebreaksbr }}</dd>
+              {% endfor %}
+            </dl>
+          {% endif %}
+        </article>
 
-      <section class="tab-panel tab-thread-panel">
-        <h2>Thread</h2>
         {% for message in messages %}
-          <article class="thread-message">
+          <article class="timeline-item thread-message">
             <header>
               <strong>{{ message.author }}</strong>
               {% if message.is_operator_note %}<span class="note-badge">Internal note</span>{% endif %}

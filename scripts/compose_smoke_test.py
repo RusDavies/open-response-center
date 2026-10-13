@@ -298,8 +298,8 @@ def submit_ticket(client: SmokeHttpClient) -> int:
     ticket_id = int(match.group("ticket_id"))
     if "Automated Compose smoke test submission." not in body:
         raise SmokeError("Ticket detail page did not render the smoke-test ticket.")
-    if "Thread" not in body or "Add reply" not in body:
-        raise SmokeError("Ticket detail page did not render the thread reply surface.")
+    if "Ticket" not in body or "Issue report" not in body or "Add reply" not in body:
+        raise SmokeError("Ticket detail page did not render the ticket timeline reply surface.")
     return ticket_id
 
 

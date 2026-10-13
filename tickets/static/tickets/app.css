@@ -853,8 +853,7 @@ fieldset {
 }
 
 .tab-list label:hover,
-#tab-report:checked ~ .tab-list label[for="tab-report"],
-#tab-thread:checked ~ .tab-list label[for="tab-thread"],
+#tab-ticket:checked ~ .tab-list label[for="tab-ticket"],
 #tab-evidence:checked ~ .tab-list label[for="tab-evidence"],
 #tab-knowledge:checked ~ .tab-list label[for="tab-knowledge"],
 #tab-workflow:checked ~ .tab-list label[for="tab-workflow"],
@@ -869,8 +868,7 @@ fieldset {
   display: none;
 }
 
-#tab-report:checked ~ .tab-panels .tab-report-panel,
-#tab-thread:checked ~ .tab-panels .tab-thread-panel,
+#tab-ticket:checked ~ .tab-panels .tab-ticket-panel,
 #tab-evidence:checked ~ .tab-panels .tab-evidence-panel,
 #tab-knowledge:checked ~ .tab-panels .tab-knowledge-panel,
 #tab-workflow:checked ~ .tab-panels .tab-workflow-panel,
@@ -885,16 +883,42 @@ fieldset {
   padding: 4px 8px;
 }
 
-.thread-message {
+.timeline-item {
   border-bottom: 1px solid var(--line);
   padding: 16px 0;
 }
 
-.thread-message header {
+.timeline-item:first-of-type {
+  padding-top: 0;
+}
+
+.timeline-item header {
   align-items: baseline;
   display: flex;
   gap: 10px;
   justify-content: space-between;
+}
+
+.timeline-item header p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 4px 0 0;
+}
+
+.issue-report-item h3 {
+  font-size: 1rem;
+  margin: 18px 0 10px;
+}
+
+.thread-message {
+  background: #fbfcfb;
+  border-radius: 8px;
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.thread-message header {
+  margin-bottom: 8px;
 }
 
 .note-badge {
@@ -970,11 +994,9 @@ dl {
 }
 
 .issue-report {
-  border-bottom: 1px solid var(--line);
   gap: 12px;
   grid-template-columns: minmax(130px, 0.26fr) minmax(0, 1fr);
-  margin-bottom: 20px;
-  padding-bottom: 18px;
+  margin-top: 14px;
 }
 
 dt {

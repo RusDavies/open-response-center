@@ -544,8 +544,10 @@ class TicketFlowTests(TestCase):
         self.assertContains(response, "State")
         self.assertNotContains(response, "Critical state")
         self.assertContains(response, "Details")
-        self.assertContains(response, "Report")
-        self.assertContains(response, "Thread")
+        self.assertContains(response, 'label for="tab-ticket"', html=False)
+        self.assertContains(response, "Issue report")
+        self.assertNotContains(response, 'label for="tab-report"', html=False)
+        self.assertNotContains(response, 'label for="tab-thread"', html=False)
         self.assertContains(response, "Evidence")
         self.assertContains(response, "Redact before uploading")
         self.assertContains(response, "Blur private messages, email addresses, phone numbers")
@@ -567,7 +569,7 @@ class TicketFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    def test_operator_update_renders_in_thread_tab(self):
+    def test_operator_update_renders_in_ticket_tab(self):
         ticket = Ticket.objects.create(
             title="Operator update placement",
             description="Needs operator controls.",
@@ -578,7 +580,7 @@ class TicketFlowTests(TestCase):
 
         response = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
 
-        self.assertContains(response, 'class="tab-panel tab-thread-panel"', html=False)
+        self.assertContains(response, 'class="tab-panel tab-ticket-panel"', html=False)
         self.assertContains(response, 'class="operator-update-panel"', html=False)
         self.assertContains(response, "Operator update")
         self.assertContains(response, reverse("operator-update", kwargs={"pk": ticket.pk}))
@@ -1270,13 +1272,13 @@ class TicketFlowTests(TestCase):
         self.assertNotContains(reporter_detail, "Check private remediation notes before replying.")
         self.assertNotContains(reporter_detail, "Internal note")
 
-    def test_ticket_chat_widget_shares_reporter_visible_thread(self):
+    def test_ticket_tab_shares_reporter_visible_thread(self):
         ticket = Ticket.objects.create(
-            title="Widget thread",
+            title="Ticket thread",
             description="Reporter-visible details.",
             reporter=self.reporter,
         )
-        TicketMessage.objects.create(ticket=ticket, author=self.reporter, body="Reporter widget reply.")
+        TicketMessage.objects.create(ticket=ticket, author=self.reporter, body="Reporter thread reply.")
         TicketMessage.objects.create(
             ticket=ticket,
             author=self.operator,
@@ -1288,8 +1290,10 @@ class TicketFlowTests(TestCase):
 
         response = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
 
-        self.assertContains(response, "Thread")
-        self.assertContains(response, "Reporter widget reply.")
+        self.assertContains(response, "Ticket")
+        self.assertContains(response, "Issue report")
+        self.assertContains(response, "Reporter-visible details.")
+        self.assertContains(response, "Reporter thread reply.")
         self.assertContains(response, "Add reply")
         self.assertNotContains(response, "Ticket chat")
         self.assertNotContains(response, 'id="ticket-chat-body"', html=False)
