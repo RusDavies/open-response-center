@@ -552,8 +552,10 @@ class TicketFlowTests(TestCase):
         self.assertContains(response, "Issue report")
         self.assertNotContains(response, 'label for="tab-report"', html=False)
         self.assertNotContains(response, 'label for="tab-thread"', html=False)
-        self.assertContains(response, "Evidence")
-        self.assertContains(response, "Redact before uploading")
+        self.assertNotContains(response, 'label for="tab-evidence"', html=False)
+        self.assertNotContains(response, 'class="tab-panel tab-evidence-panel"', html=False)
+        self.assertContains(response, "Attach evidence")
+        self.assertContains(response, "<summary>Upload guidance</summary>", html=False)
         self.assertContains(response, "Blur private messages, email addresses, phone numbers")
         self.assertContains(response, "Add reply")
         self.assertNotContains(response, "Ticket chat")
@@ -1154,6 +1156,31 @@ class TicketFlowTests(TestCase):
         client.force_login(self.reporter)
         allowed = client.get(reverse("attachment-download", kwargs={"pk": attachment.pk}))
         self.assertEqual(allowed.status_code, 200)
+
+    def test_ticket_tab_renders_evidence_inline(self):
+        ticket = Ticket.objects.create(
+            title="Inline evidence",
+            description="Has inline evidence.",
+            reporter=self.reporter,
+        )
+        attachment = Attachment.objects.create(
+            ticket=ticket,
+            uploaded_by=self.reporter,
+            file=SimpleUploadedFile("evidence.txt", b"hello", content_type="text/plain"),
+            original_name="evidence.txt",
+            content_type="text/plain",
+            size_bytes=5,
+        )
+        client = Client()
+        client.force_login(self.reporter)
+
+        response = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
+
+        self.assertContains(response, "Evidence uploaded")
+        self.assertContains(response, "evidence.txt")
+        self.assertContains(response, reverse("attachment-download", kwargs={"pk": attachment.pk}))
+        self.assertContains(response, "Attach evidence")
+        self.assertNotContains(response, 'label for="tab-evidence"', html=False)
 
     def test_attachment_cleanup_is_dry_run_by_default(self):
         with TemporaryDirectory() as media:

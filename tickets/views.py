@@ -263,6 +263,15 @@ def ticket_detail(request, pk: int):
     opening_report_message = ticket.messages.select_related("author").order_by("created_at", "pk").first()
     if opening_report_message and _is_generated_opening_report_message(ticket, opening_report_message):
         visible_messages = visible_messages.exclude(pk=opening_report_message.pk)
+    timeline_items = [
+        {"kind": "message", "created_at": message.created_at, "message": message}
+        for message in visible_messages
+    ]
+    timeline_items.extend(
+        {"kind": "evidence", "created_at": attachment.created_at, "attachment": attachment}
+        for attachment in ticket.attachments.select_related("uploaded_by")
+    )
+    timeline_items.sort(key=lambda item: item["created_at"])
     knowledge_links = _visible_knowledge_links(ticket, request.user)
 
     return render(
@@ -270,7 +279,7 @@ def ticket_detail(request, pk: int):
         "tickets/ticket_detail.html",
         {
             "ticket": ticket,
-            "messages": visible_messages,
+            "timeline_items": timeline_items,
             "knowledge_links": knowledge_links,
             "knowledge_link_form": TicketKnowledgeBaseLinkForm(user=request.user) if request.user.is_staff else None,
             "message_form": MessageForm(),

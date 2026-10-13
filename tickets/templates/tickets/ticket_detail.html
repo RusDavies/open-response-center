@@ -76,7 +76,6 @@
 
   <article class="ticket-task-tabs">
     <input class="tab-control" type="radio" name="ticket-tabs" id="tab-ticket" checked>
-    <input class="tab-control" type="radio" name="ticket-tabs" id="tab-evidence">
     <input class="tab-control" type="radio" name="ticket-tabs" id="tab-knowledge">
     {% if user.is_staff %}
       <input class="tab-control" type="radio" name="ticket-tabs" id="tab-workflow">
@@ -87,7 +86,6 @@
     <fieldset class="tab-list" aria-label="Ticket tasks">
       <legend class="visually-hidden">Ticket tasks</legend>
       <label for="tab-ticket">Ticket</label>
-      <label for="tab-evidence">Evidence</label>
       <label for="tab-knowledge">Knowledge</label>
       {% if user.is_staff %}
         <label for="tab-workflow">Workflow</label>
@@ -133,17 +131,37 @@
           {% endif %}
         </article>
 
-        {% for message in messages %}
-          <article class="timeline-item thread-message">
-            <header>
-              <strong>{{ message.author }}</strong>
-              {% if message.is_operator_note %}<span class="note-badge">Internal note</span>{% endif %}
-              <time>{{ message.created_at|date:"Y-m-d H:i" }}</time>
-            </header>
-            <p>{{ message.body|linebreaksbr }}</p>
-          </article>
+        {% for item in timeline_items %}
+          {% if item.kind == "message" %}
+            {% with message=item.message %}
+              <article class="timeline-item thread-message">
+                <header>
+                  <strong>{{ message.author }}</strong>
+                  {% if message.is_operator_note %}<span class="note-badge">Internal note</span>{% endif %}
+                  <time>{{ message.created_at|date:"Y-m-d H:i" }}</time>
+                </header>
+                <p>{{ message.body|linebreaksbr }}</p>
+              </article>
+            {% endwith %}
+          {% elif item.kind == "evidence" %}
+            {% with attachment=item.attachment %}
+              <article class="timeline-item evidence-item">
+                <header>
+                  <div>
+                    <strong>Evidence uploaded</strong>
+                    <p>{{ attachment.uploaded_by }} attached this file</p>
+                  </div>
+                  <time>{{ attachment.created_at|date:"Y-m-d H:i" }}</time>
+                </header>
+                <div class="evidence-file">
+                  <a href="{% url 'attachment-download' attachment.pk %}">{{ attachment.original_name }}</a>
+                  <span>{{ attachment.size_bytes|filesizeformat }}</span>
+                </div>
+              </article>
+            {% endwith %}
+          {% endif %}
         {% empty %}
-          <p class="empty">No messages yet.</p>
+          <p class="empty">No replies or evidence yet.</p>
         {% endfor %}
 
         <form method="post" action="{% url 'ticket-add-message' ticket.pk %}" class="stack reply-form">
@@ -151,6 +169,22 @@
           {{ message_form.as_p }}
           <button class="primary" type="submit">Add reply</button>
         </form>
+        <section class="attach-evidence-panel">
+          <h3>Attach evidence</h3>
+          <details class="upload-guidance">
+            <summary>Upload guidance</summary>
+            <ul>
+              <li>Remove passwords, tokens, API keys, session cookies, and recovery codes.</li>
+              <li>Blur private messages, email addresses, phone numbers, and unrelated customer data.</li>
+              <li>Keep timestamps, error text, request IDs, and file names when they help operators reproduce the issue.</li>
+            </ul>
+          </details>
+          <form method="post" enctype="multipart/form-data" action="{% url 'ticket-add-attachment' ticket.pk %}" class="attach-evidence-form">
+            {% csrf_token %}
+            {{ attachment_form.as_p }}
+            <button type="submit">Upload</button>
+          </form>
+        </section>
         {% if user.is_staff %}
           <form method="post" action="{% url 'ticket-add-message' ticket.pk %}" class="stack split-action">
             {% csrf_token %}
@@ -183,33 +217,6 @@
             </form>
           </section>
         {% endif %}
-      </section>
-
-      <section class="tab-panel tab-evidence-panel">
-        <h2>Evidence</h2>
-        <div class="guidance-panel compact">
-          <h3>Redact before uploading</h3>
-          <ul>
-            <li>Remove passwords, tokens, API keys, session cookies, and recovery codes.</li>
-            <li>Blur private messages, email addresses, phone numbers, and unrelated customer data.</li>
-            <li>Keep timestamps, error text, request IDs, and file names when they help operators reproduce the issue.</li>
-          </ul>
-        </div>
-        <ul class="attachment-list">
-          {% for attachment in ticket.attachments.all %}
-            <li>
-              <a href="{% url 'attachment-download' attachment.pk %}">{{ attachment.original_name }}</a>
-              <span>{{ attachment.size_bytes|filesizeformat }}</span>
-            </li>
-          {% empty %}
-            <li class="empty">No attachments.</li>
-          {% endfor %}
-        </ul>
-        <form method="post" enctype="multipart/form-data" action="{% url 'ticket-add-attachment' ticket.pk %}">
-          {% csrf_token %}
-          {{ attachment_form.as_p }}
-          <button type="submit">Upload</button>
-        </form>
       </section>
 
       <section class="tab-panel tab-knowledge-panel">
