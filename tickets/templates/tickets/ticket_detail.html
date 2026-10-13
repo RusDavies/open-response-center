@@ -159,11 +159,27 @@
             <button type="submit">Add internal note</button>
           </form>
           <section class="operator-update-panel">
-            <h3>Operator update</h3>
-            <form method="post" action="{% url 'operator-update' ticket.pk %}" class="stack">
+            <h3>Update</h3>
+            <form method="post" action="{% url 'operator-update' ticket.pk %}" class="operator-update-form">
               {% csrf_token %}
-              {{ operator_form.as_p }}
-              <button class="primary" type="submit">Save update</button>
+              {{ operator_form.non_field_errors }}
+              <div class="operator-update-grid">
+                <div>{{ operator_form.status.as_field_group }}</div>
+                <div>{{ operator_form.operator.as_field_group }}</div>
+                <div>{{ operator_form.department.as_field_group }}</div>
+              </div>
+              <div class="operator-update-note">{{ operator_form.note.as_field_group }}</div>
+              <details class="operator-update-more">
+                <summary>More</summary>
+                <div class="operator-update-grid secondary">
+                  <div>{{ operator_form.workflow_template.as_field_group }}</div>
+                  <div>{{ operator_form.incident_reference.as_field_group }}</div>
+                  <div>{{ operator_form.engineering_reference.as_field_group }}</div>
+                </div>
+              </details>
+              <div class="operator-update-actions">
+                <button class="primary" type="submit">Save update</button>
+              </div>
             </form>
           </section>
         {% endif %}

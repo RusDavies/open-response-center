@@ -234,7 +234,7 @@ class InternalNoteForm(forms.ModelForm):
 class OperatorUpdateForm(forms.ModelForm):
     note = forms.CharField(
         required=False,
-        widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Optional status-change note"}),
+        widget=forms.Textarea(attrs={"rows": 2, "placeholder": "Optional note"}),
     )
 
     class Meta:

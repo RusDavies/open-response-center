@@ -586,7 +586,12 @@ class TicketFlowTests(TestCase):
 
         self.assertContains(response, 'class="tab-panel tab-ticket-panel"', html=False)
         self.assertContains(response, 'class="operator-update-panel"', html=False)
-        self.assertContains(response, "Operator update")
+        self.assertContains(response, ">Update</h3>", html=False)
+        self.assertNotContains(response, ">Operator update</h3>", html=False)
+        self.assertContains(response, 'class="operator-update-grid"', html=False)
+        self.assertContains(response, 'class="operator-update-note"', html=False)
+        self.assertContains(response, 'class="operator-update-more"', html=False)
+        self.assertContains(response, "<summary>More</summary>", html=False)
         self.assertContains(response, reverse("operator-update", kwargs={"pk": ticket.pk}))
 
     def test_internal_knowledge_base_visibility_respects_audience(self):

@@ -816,7 +816,54 @@ fieldset {
 
 .operator-update-panel h3 {
   font-size: 1rem;
-  margin: 0 0 12px;
+  margin: 0 0 10px;
+}
+
+.operator-update-form {
+  display: grid;
+  gap: 10px;
+}
+
+.operator-update-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.operator-update-grid.secondary {
+  margin-top: 10px;
+}
+
+.operator-update-form label {
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+}
+
+.operator-update-form input,
+.operator-update-form select,
+.operator-update-form textarea {
+  padding: 7px 8px;
+}
+
+.operator-update-note textarea {
+  min-height: 58px;
+}
+
+.operator-update-more {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.operator-update-more summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.operator-update-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .ticket-task-tabs {
@@ -1122,6 +1169,10 @@ dd {
 
   .pinned-ticket-state {
     position: static;
+  }
+
+  .operator-update-grid {
+    grid-template-columns: 1fr;
   }
 
   .tab-list {
