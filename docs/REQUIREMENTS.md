@@ -12,8 +12,7 @@
 - Blocking workflow checklist items must be completed before an operator can close the ticket.
 - Users can view their submitted reports and current status.
 - Users and operators can participate in a threaded discussion per report.
-- Ticket detail includes a compact ticket-bound chat widget backed by the same reporter-visible
-  thread as the full ticket discussion.
+- Ticket detail uses the thread tab as the single ticket-bound discussion surface.
 - Operators can add internal notes hidden from reporters.
 - Operators can update lifecycle state.
 - Operators can see response and resolution SLA state derived from ticket impact.
@@ -28,7 +27,7 @@
 - Operators can import linked workspace incident status updates back into reporter-facing ticket status.
 - Promoted ticket attachments are copied into the operational incident evidence directory.
 - Scoped operations-agent service accounts can use authenticated JSON APIs to create and read tickets,
-  add ticket messages, update lifecycle fields, and promote tickets to operational incidents.
+  add ticket thread messages, update lifecycle fields, and promote tickets to operational incidents.
 - Scoped operations-agent service accounts can upsert and query cases by external provider/correlation
   IDs so gateway/watchdog automation can hand off repeat observations idempotently.
 - The system keeps structured machine-observation events separate from human ticket messages while

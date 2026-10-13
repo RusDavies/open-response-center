@@ -267,30 +267,4 @@
     </div>
   </article>
 </section>
-
-<aside class="ticket-chat-widget" aria-labelledby="ticket-chat-title">
-  <div class="ticket-chat-header">
-    <h2 id="ticket-chat-title">Ticket chat</h2>
-    <span class="pill">{{ ticket.get_status_display }}</span>
-  </div>
-  <div class="ticket-chat-messages" aria-live="polite">
-    {% for message in chat_messages %}
-      <article class="ticket-chat-message">
-        <header>
-          <strong>{{ message.author }}</strong>
-          <time>{{ message.created_at|date:"Y-m-d H:i" }}</time>
-        </header>
-        <p>{{ message.body|linebreaksbr }}</p>
-      </article>
-    {% empty %}
-      <p class="empty">No chat messages yet.</p>
-    {% endfor %}
-  </div>
-  <form method="post" action="{% url 'ticket-add-message' ticket.pk %}" class="ticket-chat-form">
-    {% csrf_token %}
-    <label class="visually-hidden" for="ticket-chat-body">Reply in ticket chat</label>
-    <textarea id="ticket-chat-body" name="body" rows="3" placeholder="Reply in ticket chat"></textarea>
-    <button class="primary" type="submit">Send</button>
-  </form>
-</aside>
 {% endblock %}
