@@ -554,7 +554,10 @@ class TicketFlowTests(TestCase):
         self.assertNotContains(response, 'label for="tab-thread"', html=False)
         self.assertNotContains(response, 'label for="tab-evidence"', html=False)
         self.assertNotContains(response, 'class="tab-panel tab-evidence-panel"', html=False)
-        self.assertContains(response, "Attach evidence")
+        self.assertContains(response, 'class="action-composer"', html=False)
+        self.assertContains(response, 'id="action-reply" checked', html=False)
+        self.assertContains(response, 'label for="action-reply"', html=False)
+        self.assertContains(response, 'label for="action-evidence"', html=False)
         self.assertContains(response, "<summary>Upload guidance</summary>", html=False)
         self.assertContains(response, "Blur private messages, email addresses, phone numbers")
         self.assertContains(response, "Add reply")
@@ -587,8 +590,9 @@ class TicketFlowTests(TestCase):
         response = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
 
         self.assertContains(response, 'class="tab-panel tab-ticket-panel"', html=False)
-        self.assertContains(response, 'class="operator-update-panel"', html=False)
-        self.assertContains(response, ">Update</h3>", html=False)
+        self.assertContains(response, 'class="action-composer"', html=False)
+        self.assertContains(response, 'label for="action-update"', html=False)
+        self.assertContains(response, 'class="action-mode-panel action-update-panel"', html=False)
         self.assertNotContains(response, ">Operator update</h3>", html=False)
         self.assertContains(response, 'class="operator-update-grid"', html=False)
         self.assertContains(response, 'class="operator-update-note"', html=False)
@@ -1179,7 +1183,7 @@ class TicketFlowTests(TestCase):
         self.assertContains(response, "Evidence uploaded")
         self.assertContains(response, "evidence.txt")
         self.assertContains(response, reverse("attachment-download", kwargs={"pk": attachment.pk}))
-        self.assertContains(response, "Attach evidence")
+        self.assertContains(response, 'label for="action-evidence"', html=False)
         self.assertNotContains(response, 'label for="tab-evidence"', html=False)
 
     def test_attachment_cleanup_is_dry_run_by_default(self):

@@ -164,59 +164,78 @@
           <p class="empty">No replies or evidence yet.</p>
         {% endfor %}
 
-        <form method="post" action="{% url 'ticket-add-message' ticket.pk %}" class="stack reply-form">
-          {% csrf_token %}
-          {{ message_form.as_p }}
-          <button class="primary" type="submit">Add reply</button>
-        </form>
-        <section class="attach-evidence-panel">
-          <h3>Attach evidence</h3>
-          <details class="upload-guidance">
-            <summary>Upload guidance</summary>
-            <ul>
-              <li>Remove passwords, tokens, API keys, session cookies, and recovery codes.</li>
-              <li>Blur private messages, email addresses, phone numbers, and unrelated customer data.</li>
-              <li>Keep timestamps, error text, request IDs, and file names when they help operators reproduce the issue.</li>
-            </ul>
-          </details>
-          <form method="post" enctype="multipart/form-data" action="{% url 'ticket-add-attachment' ticket.pk %}" class="attach-evidence-form">
-            {% csrf_token %}
-            {{ attachment_form.as_p }}
-            <button type="submit">Upload</button>
-          </form>
-        </section>
-        {% if user.is_staff %}
-          <form method="post" action="{% url 'ticket-add-message' ticket.pk %}" class="stack split-action">
-            {% csrf_token %}
-            <input type="hidden" name="is_operator_note" value="1">
-            {{ internal_note_form.body.as_field_group }}
-            <button type="submit">Add internal note</button>
-          </form>
-          <section class="operator-update-panel">
-            <h3>Update</h3>
-            <form method="post" action="{% url 'operator-update' ticket.pk %}" class="operator-update-form">
+        <section class="action-composer">
+          <h3>Action</h3>
+          <input class="action-mode-control" type="radio" name="ticket-action-mode" id="action-reply" checked>
+          <input class="action-mode-control" type="radio" name="ticket-action-mode" id="action-evidence">
+          {% if user.is_staff %}
+            <input class="action-mode-control" type="radio" name="ticket-action-mode" id="action-note">
+            <input class="action-mode-control" type="radio" name="ticket-action-mode" id="action-update">
+          {% endif %}
+
+          <div class="action-mode-list" aria-label="Ticket actions">
+            <label for="action-reply">Reply</label>
+            <label for="action-evidence">Evidence</label>
+            {% if user.is_staff %}
+              <label for="action-note">Internal note</label>
+              <label for="action-update">Update</label>
+            {% endif %}
+          </div>
+
+          <div class="action-mode-panels">
+            <form method="post" action="{% url 'ticket-add-message' ticket.pk %}" class="action-mode-panel action-reply-panel stack">
               {% csrf_token %}
-              {{ operator_form.non_field_errors }}
-              <div class="operator-update-grid">
-                <div>{{ operator_form.status.as_field_group }}</div>
-                <div>{{ operator_form.operator.as_field_group }}</div>
-                <div>{{ operator_form.department.as_field_group }}</div>
-              </div>
-              <div class="operator-update-note">{{ operator_form.note.as_field_group }}</div>
-              <details class="operator-update-more">
-                <summary>More</summary>
-                <div class="operator-update-grid secondary">
-                  <div>{{ operator_form.workflow_template.as_field_group }}</div>
-                  <div>{{ operator_form.incident_reference.as_field_group }}</div>
-                  <div>{{ operator_form.engineering_reference.as_field_group }}</div>
-                </div>
-              </details>
-              <div class="operator-update-actions">
-                <button class="primary" type="submit">Save update</button>
-              </div>
+              {{ message_form.as_p }}
+              <button class="primary" type="submit">Add reply</button>
             </form>
-          </section>
-        {% endif %}
+            <section class="action-mode-panel action-evidence-panel">
+              <details class="upload-guidance">
+                <summary>Upload guidance</summary>
+                <ul>
+                  <li>Remove passwords, tokens, API keys, session cookies, and recovery codes.</li>
+                  <li>Blur private messages, email addresses, phone numbers, and unrelated customer data.</li>
+                  <li>Keep timestamps, error text, request IDs, and file names when they help operators reproduce the issue.</li>
+                </ul>
+              </details>
+              <form method="post" enctype="multipart/form-data" action="{% url 'ticket-add-attachment' ticket.pk %}" class="attach-evidence-form">
+                {% csrf_token %}
+                {{ attachment_form.as_p }}
+                <button type="submit">Upload</button>
+              </form>
+            </section>
+            {% if user.is_staff %}
+              <form method="post" action="{% url 'ticket-add-message' ticket.pk %}" class="action-mode-panel action-note-panel stack">
+                {% csrf_token %}
+                <input type="hidden" name="is_operator_note" value="1">
+                {{ internal_note_form.body.as_field_group }}
+                <button type="submit">Add internal note</button>
+              </form>
+              <section class="action-mode-panel action-update-panel">
+                <form method="post" action="{% url 'operator-update' ticket.pk %}" class="operator-update-form">
+                  {% csrf_token %}
+                  {{ operator_form.non_field_errors }}
+                  <div class="operator-update-grid">
+                    <div>{{ operator_form.status.as_field_group }}</div>
+                    <div>{{ operator_form.operator.as_field_group }}</div>
+                    <div>{{ operator_form.department.as_field_group }}</div>
+                  </div>
+                  <div class="operator-update-note">{{ operator_form.note.as_field_group }}</div>
+                  <details class="operator-update-more">
+                    <summary>More</summary>
+                    <div class="operator-update-grid secondary">
+                      <div>{{ operator_form.workflow_template.as_field_group }}</div>
+                      <div>{{ operator_form.incident_reference.as_field_group }}</div>
+                      <div>{{ operator_form.engineering_reference.as_field_group }}</div>
+                    </div>
+                  </details>
+                  <div class="operator-update-actions">
+                    <button class="primary" type="submit">Save update</button>
+                  </div>
+                </form>
+              </section>
+            {% endif %}
+          </div>
+        </section>
       </section>
 
       <section class="tab-panel tab-knowledge-panel">

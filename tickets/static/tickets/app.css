@@ -808,17 +808,6 @@ fieldset {
   margin-bottom: 10px;
 }
 
-.operator-update-panel {
-  border-top: 1px solid var(--line);
-  margin-top: 18px;
-  padding-top: 18px;
-}
-
-.operator-update-panel h3 {
-  font-size: 1rem;
-  margin: 0 0 10px;
-}
-
 .operator-update-form {
   display: grid;
   gap: 10px;
@@ -1004,20 +993,65 @@ time,
   font-size: 0.88rem;
 }
 
-.reply-form {
-  margin-top: 18px;
-}
-
-.split-action,
-.attach-evidence-panel {
+.action-composer {
   border-top: 1px solid var(--line);
-  margin-top: 14px;
-  padding-top: 14px;
+  margin-top: 18px;
+  padding-top: 16px;
 }
 
-.attach-evidence-panel h3 {
+.action-composer h3 {
   font-size: 1rem;
-  margin: 0 0 10px;
+  margin: 0 0 12px;
+}
+
+.action-mode-control {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.action-mode-list {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.action-mode-list label {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 800;
+  margin: 0;
+  padding: 7px 10px;
+}
+
+.action-mode-list label:hover,
+#action-reply:checked ~ .action-mode-list label[for="action-reply"],
+#action-evidence:checked ~ .action-mode-list label[for="action-evidence"],
+#action-note:checked ~ .action-mode-list label[for="action-note"],
+#action-update:checked ~ .action-mode-list label[for="action-update"] {
+  background: #f8faf8;
+  color: var(--text);
+}
+
+.action-mode-panel {
+  display: none;
+}
+
+#action-reply:checked ~ .action-mode-panels .action-reply-panel,
+#action-evidence:checked ~ .action-mode-panels .action-evidence-panel,
+#action-note:checked ~ .action-mode-panels .action-note-panel,
+#action-update:checked ~ .action-mode-panels .action-update-panel {
+  display: grid;
+}
+
+.action-evidence-panel,
+.action-update-panel {
+  gap: 10px;
 }
 
 .upload-guidance {
