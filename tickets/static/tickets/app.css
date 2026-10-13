@@ -728,9 +728,95 @@ fieldset {
 
 .pinned-ticket-state {
   display: grid;
-  gap: 16px;
+  gap: 12px;
   position: sticky;
   top: 82px;
+}
+
+.state-rail-section {
+  display: grid;
+  gap: 12px;
+}
+
+.state-rail-section h2 {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.state-rail {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr;
+}
+
+.state-rail div {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 32px;
+  padding-bottom: 8px;
+}
+
+.state-rail div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.state-rail dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.state-rail dd {
+  font-weight: 700;
+  margin: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.sla-summary {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.sla-summary span:last-child {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.sla-details {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.sla-details summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.sla-details[open] summary {
+  margin-bottom: 10px;
+}
+
+.operator-update-panel {
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.operator-update-panel h3 {
+  font-size: 1rem;
+  margin: 0 0 12px;
 }
 
 .ticket-task-tabs {

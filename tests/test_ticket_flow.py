@@ -541,7 +541,9 @@ class TicketFlowTests(TestCase):
         self.assertContains(response, "Expected outcome")
         self.assertContains(response, "Actual outcome")
         self.assertContains(response, "Dashboard count is wrong.")
-        self.assertContains(response, "Critical state")
+        self.assertContains(response, "State")
+        self.assertNotContains(response, "Critical state")
+        self.assertContains(response, "Details")
         self.assertContains(response, "Report")
         self.assertContains(response, "Thread")
         self.assertContains(response, "Evidence")
@@ -564,6 +566,22 @@ class TicketFlowTests(TestCase):
         response = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
 
         self.assertEqual(response.status_code, 404)
+
+    def test_operator_update_renders_in_thread_tab(self):
+        ticket = Ticket.objects.create(
+            title="Operator update placement",
+            description="Needs operator controls.",
+            reporter=self.reporter,
+        )
+        client = Client()
+        client.force_login(self.operator)
+
+        response = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
+
+        self.assertContains(response, 'class="tab-panel tab-thread-panel"', html=False)
+        self.assertContains(response, 'class="operator-update-panel"', html=False)
+        self.assertContains(response, "Operator update")
+        self.assertContains(response, reverse("operator-update", kwargs={"pk": ticket.pk}))
 
     def test_internal_knowledge_base_visibility_respects_audience(self):
         public_article = KnowledgeBaseArticle.objects.create(

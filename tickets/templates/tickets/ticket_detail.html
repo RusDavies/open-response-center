@@ -16,49 +16,62 @@
 </section>
 
 <section class="ticket-workspace">
-  <aside class="pinned-ticket-state" aria-label="Pinned ticket state">
-    <section>
-      <h2>Critical state</h2>
-      <dl>
-        <dt>Status</dt>
-        <dd><span class="status compact">{{ ticket.get_status_display }}</span></dd>
-        <dt>Priority</dt>
-        <dd>{{ ticket.get_impact_display }} impact</dd>
-        <dt>Assignee</dt>
-        <dd>{{ ticket.operator|default:"Unassigned" }}</dd>
-        <dt>Department</dt>
-        <dd>{{ ticket.department|default:"Unassigned" }}</dd>
-        <dt>Incident</dt>
-        <dd>{{ ticket.incident_reference|default:"-" }}</dd>
+  <aside class="pinned-ticket-state" aria-label="Ticket state">
+    <section class="state-rail-section">
+      <h2>State</h2>
+      <dl class="state-rail">
+        <div>
+          <dt>Status</dt>
+          <dd><span class="status compact">{{ ticket.get_status_display }}</span></dd>
+        </div>
+        <div>
+          <dt>Impact</dt>
+          <dd>{{ ticket.get_impact_display }}</dd>
+        </div>
+        <div>
+          <dt>Assignee</dt>
+          <dd>{{ ticket.operator|default:"Unassigned" }}</dd>
+        </div>
+        <div>
+          <dt>Department</dt>
+          <dd>{{ ticket.department|default:"Unassigned" }}</dd>
+        </div>
+        <div>
+          <dt>Incident</dt>
+          <dd>{{ ticket.incident_reference|default:"-" }}</dd>
+        </div>
       </dl>
     </section>
-    <section>
+    <section class="state-rail-section">
       <h2>SLA</h2>
       {% with sla=ticket.sla_summary %}
-        <dl>
-          <dt>State</dt>
-          <dd><span class="pill sla-{{ sla.state }}">{{ sla.state_label }}</span></dd>
-          <dt>Response due</dt>
-          <dd>{{ sla.response_due_at|date:"Y-m-d H:i" }}</dd>
-          <dt>Resolution due</dt>
-          <dd>{{ sla.resolution_due_at|date:"Y-m-d H:i" }}</dd>
-          <dt>Responded</dt>
-          <dd>{{ sla.first_response_at|date:"Y-m-d H:i"|default:"-" }}</dd>
-          <dt>Resolved</dt>
-          <dd>{{ sla.resolved_at|date:"Y-m-d H:i"|default:"-" }}</dd>
-        </dl>
+        <div class="sla-summary">
+          <span class="pill sla-{{ sla.state }}">{{ sla.state_label }}</span>
+          <span>Response {{ sla.response_due_at|date:"Y-m-d H:i"|default:"-" }}</span>
+        </div>
+        <details class="sla-details">
+          <summary>Details</summary>
+          <dl class="state-rail">
+            <div>
+              <dt>Response due</dt>
+              <dd>{{ sla.response_due_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+            </div>
+            <div>
+              <dt>Resolution due</dt>
+              <dd>{{ sla.resolution_due_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+            </div>
+            <div>
+              <dt>Responded</dt>
+              <dd>{{ sla.first_response_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+            </div>
+            <div>
+              <dt>Resolved</dt>
+              <dd>{{ sla.resolved_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+            </div>
+          </dl>
+        </details>
       {% endwith %}
     </section>
-    {% if user.is_staff %}
-      <section>
-        <h2>Operator update</h2>
-        <form method="post" action="{% url 'operator-update' ticket.pk %}" class="stack">
-          {% csrf_token %}
-          {{ operator_form.as_p }}
-          <button class="primary" type="submit">Save update</button>
-        </form>
-      </section>
-    {% endif %}
   </aside>
 
   <article class="ticket-task-tabs">
@@ -140,6 +153,14 @@
             {{ internal_note_form.body.as_field_group }}
             <button type="submit">Add internal note</button>
           </form>
+          <section class="operator-update-panel">
+            <h3>Operator update</h3>
+            <form method="post" action="{% url 'operator-update' ticket.pk %}" class="stack">
+              {% csrf_token %}
+              {{ operator_form.as_p }}
+              <button class="primary" type="submit">Save update</button>
+            </form>
+          </section>
         {% endif %}
       </section>
 
