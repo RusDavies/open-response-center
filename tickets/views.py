@@ -245,6 +245,17 @@ def ticket_detail(request, pk: int):
     visible_messages = ticket.messages.select_related("author")
     if not request.user.is_staff:
         visible_messages = visible_messages.filter(is_operator_note=False)
+    opening_report_message = (
+        ticket.messages.filter(
+            author=ticket.reporter,
+            body=ticket.description,
+            is_operator_note=False,
+        )
+        .order_by("created_at", "pk")
+        .first()
+    )
+    if opening_report_message:
+        visible_messages = visible_messages.exclude(pk=opening_report_message.pk)
     knowledge_links = _visible_knowledge_links(ticket, request.user)
 
     return render(

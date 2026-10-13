@@ -1282,6 +1282,7 @@ class TicketFlowTests(TestCase):
             description="Reporter-visible details.",
             reporter=self.reporter,
         )
+        TicketMessage.objects.create(ticket=ticket, author=self.reporter, body=ticket.description)
         TicketMessage.objects.create(ticket=ticket, author=self.reporter, body="Reporter thread reply.")
         TicketMessage.objects.create(
             ticket=ticket,
@@ -1297,6 +1298,7 @@ class TicketFlowTests(TestCase):
         self.assertContains(response, "Ticket")
         self.assertContains(response, "Issue report")
         self.assertContains(response, "Reporter-visible details.")
+        self.assertEqual(response.content.decode().count("Reporter-visible details."), 1)
         self.assertContains(response, "Reporter thread reply.")
         self.assertContains(response, "Add reply")
         self.assertNotContains(response, "Ticket chat")
