@@ -545,6 +545,7 @@ class TicketFlowTests(TestCase):
         self.assertNotContains(response, "Critical state")
         self.assertContains(response, "Details")
         self.assertContains(response, 'label for="tab-ticket"', html=False)
+        self.assertNotContains(response, "<h2>Ticket</h2>", html=False)
         self.assertContains(response, "Issue report")
         self.assertNotContains(response, 'label for="tab-report"', html=False)
         self.assertNotContains(response, 'label for="tab-thread"', html=False)
