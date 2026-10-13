@@ -17,61 +17,126 @@
 
 <section class="ticket-workspace">
   <aside class="pinned-ticket-state" aria-label="Ticket state">
-    <section class="state-rail-section">
-      <h2>State</h2>
-      <dl class="state-rail">
-        <div>
-          <dt>Status</dt>
-          <dd><span class="status compact">{{ ticket.get_status_display }}</span></dd>
-        </div>
-        <div>
-          <dt>Impact</dt>
-          <dd>{{ ticket.get_impact_display }}</dd>
-        </div>
-        <div>
-          <dt>Assignee</dt>
-          <dd>{{ ticket.operator|default:"Unassigned" }}</dd>
-        </div>
-        <div>
-          <dt>Department</dt>
-          <dd>{{ ticket.department|default:"Unassigned" }}</dd>
-        </div>
-        <div>
-          <dt>Incident</dt>
-          <dd>{{ ticket.incident_reference|default:"-" }}</dd>
-        </div>
-      </dl>
-    </section>
-    <section class="state-rail-section">
-      <h2>SLA</h2>
-      {% with sla=ticket.sla_summary %}
-        <div class="sla-summary">
-          <span class="pill sla-{{ sla.state }}">{{ sla.state_label }}</span>
-          <span>Response {{ sla.response_due_at|date:"Y-m-d H:i"|default:"-" }}</span>
-        </div>
-        <details class="sla-details">
-          <summary>Details</summary>
+    {% with sla=ticket.sla_summary %}
+      <details class="mobile-ticket-state">
+        <summary>
+          <span>State</span>
+          <span class="mobile-state-line">
+            <span class="status compact">{{ ticket.get_status_display }}</span>
+            <span>{{ ticket.get_impact_display }}</span>
+            <span class="pill sla-{{ sla.state }}">{{ sla.state_label }}</span>
+          </span>
+        </summary>
+        <section class="state-rail-section">
+          <h2>State</h2>
           <dl class="state-rail">
             <div>
-              <dt>Response due</dt>
-              <dd>{{ sla.response_due_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+              <dt>Status</dt>
+              <dd><span class="status compact">{{ ticket.get_status_display }}</span></dd>
             </div>
             <div>
-              <dt>Resolution due</dt>
-              <dd>{{ sla.resolution_due_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+              <dt>Impact</dt>
+              <dd>{{ ticket.get_impact_display }}</dd>
             </div>
             <div>
-              <dt>Responded</dt>
-              <dd>{{ sla.first_response_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+              <dt>Assignee</dt>
+              <dd>{{ ticket.operator|default:"Unassigned" }}</dd>
             </div>
             <div>
-              <dt>Resolved</dt>
-              <dd>{{ sla.resolved_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+              <dt>Department</dt>
+              <dd>{{ ticket.department|default:"Unassigned" }}</dd>
+            </div>
+            <div>
+              <dt>Incident</dt>
+              <dd>{{ ticket.incident_reference|default:"-" }}</dd>
             </div>
           </dl>
-        </details>
-      {% endwith %}
-    </section>
+        </section>
+        <section class="state-rail-section">
+          <h2>SLA</h2>
+          <div class="sla-summary">
+            <span class="pill sla-{{ sla.state }}">{{ sla.state_label }}</span>
+            <span>Response {{ sla.response_due_at|date:"Y-m-d H:i"|default:"-" }}</span>
+          </div>
+          <details class="sla-details">
+            <summary>Details</summary>
+            <dl class="state-rail">
+              <div>
+                <dt>Response due</dt>
+                <dd>{{ sla.response_due_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+              </div>
+              <div>
+                <dt>Resolution due</dt>
+                <dd>{{ sla.resolution_due_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+              </div>
+              <div>
+                <dt>Responded</dt>
+                <dd>{{ sla.first_response_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+              </div>
+              <div>
+                <dt>Resolved</dt>
+                <dd>{{ sla.resolved_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+              </div>
+            </dl>
+          </details>
+        </section>
+      </details>
+      <div class="desktop-ticket-state">
+        <section class="state-rail-section">
+          <h2>State</h2>
+          <dl class="state-rail">
+            <div>
+              <dt>Status</dt>
+              <dd><span class="status compact">{{ ticket.get_status_display }}</span></dd>
+            </div>
+            <div>
+              <dt>Impact</dt>
+              <dd>{{ ticket.get_impact_display }}</dd>
+            </div>
+            <div>
+              <dt>Assignee</dt>
+              <dd>{{ ticket.operator|default:"Unassigned" }}</dd>
+            </div>
+            <div>
+              <dt>Department</dt>
+              <dd>{{ ticket.department|default:"Unassigned" }}</dd>
+            </div>
+            <div>
+              <dt>Incident</dt>
+              <dd>{{ ticket.incident_reference|default:"-" }}</dd>
+            </div>
+          </dl>
+        </section>
+        <section class="state-rail-section">
+          <h2>SLA</h2>
+          <div class="sla-summary">
+            <span class="pill sla-{{ sla.state }}">{{ sla.state_label }}</span>
+            <span>Response {{ sla.response_due_at|date:"Y-m-d H:i"|default:"-" }}</span>
+          </div>
+          <details class="sla-details">
+            <summary>Details</summary>
+            <dl class="state-rail">
+              <div>
+                <dt>Response due</dt>
+                <dd>{{ sla.response_due_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+              </div>
+              <div>
+                <dt>Resolution due</dt>
+                <dd>{{ sla.resolution_due_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+              </div>
+              <div>
+                <dt>Responded</dt>
+                <dd>{{ sla.first_response_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+              </div>
+              <div>
+                <dt>Resolved</dt>
+                <dd>{{ sla.resolved_at|date:"Y-m-d H:i"|default:"-" }}</dd>
+              </div>
+            </dl>
+          </details>
+        </section>
+      </div>
+    {% endwith %}
   </aside>
 
   <article class="ticket-task-tabs">

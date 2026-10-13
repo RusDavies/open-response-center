@@ -733,6 +733,15 @@ fieldset {
   top: 82px;
 }
 
+.desktop-ticket-state {
+  display: grid;
+  gap: 12px;
+}
+
+.mobile-ticket-state {
+  display: none;
+}
+
 .state-rail-section {
   display: grid;
   gap: 12px;
@@ -1255,6 +1264,73 @@ dd {
 
   .pinned-ticket-state {
     position: static;
+  }
+
+  .desktop-ticket-state {
+    display: none;
+  }
+
+  .mobile-ticket-state {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    display: block;
+    padding: 0;
+  }
+
+  .mobile-ticket-state > summary {
+    align-items: center;
+    cursor: pointer;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    list-style: none;
+    min-height: 54px;
+    padding: 10px 12px;
+  }
+
+  .mobile-ticket-state > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mobile-ticket-state > summary::after {
+    color: var(--muted);
+    content: "+";
+    flex: 0 0 auto;
+    font-size: 0.9rem;
+  }
+
+  .mobile-ticket-state[open] > summary::after {
+    content: "-";
+  }
+
+  .mobile-ticket-state > summary > span:first-child {
+    font-weight: 800;
+  }
+
+  .mobile-state-line {
+    align-items: center;
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .mobile-state-line > span:not(.status, .pill) {
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .mobile-ticket-state .state-rail-section {
+    border-top: 1px solid var(--line);
+    padding: 14px 12px;
+  }
+
+  .mobile-ticket-state .state-rail-section + .state-rail-section {
+    margin-top: 0;
   }
 
   .operator-update-grid {
