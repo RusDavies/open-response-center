@@ -999,6 +999,26 @@ dl {
   margin-top: 14px;
 }
 
+.issue-context-details {
+  border-top: 1px solid var(--line);
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+.issue-context-details summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.issue-context-details[open] summary {
+  margin-bottom: 8px;
+}
+
+.issue-context-body {
+  overflow-wrap: anywhere;
+}
+
 dt {
   color: var(--muted);
   font-weight: 800;

@@ -115,11 +115,13 @@
             <dd>{{ ticket.expected_outcome|default:"-"|linebreaksbr }}</dd>
             <dt>Actual outcome</dt>
             <dd>{{ ticket.actual_outcome|default:"-"|linebreaksbr }}</dd>
-            {% if ticket.additional_context %}
-              <dt>Additional context</dt>
-              <dd>{{ ticket.additional_context|linebreaksbr }}</dd>
-            {% endif %}
           </dl>
+          {% if ticket.additional_context %}
+            <details class="issue-context-details">
+              <summary>Additional context</summary>
+              <div class="issue-context-body">{{ ticket.additional_context|linebreaksbr }}</div>
+            </details>
+          {% endif %}
           {% if ticket.intake_field_values %}
             <h3>Department intake</h3>
             <dl class="issue-report">
