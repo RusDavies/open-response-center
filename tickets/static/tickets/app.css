@@ -1318,7 +1318,7 @@ dd {
     min-width: 0;
   }
 
-  .mobile-state-line > span:not(.status, .pill) {
+  .mobile-state-line > span:not(.pill) {
     color: var(--muted);
     font-size: 0.85rem;
     font-weight: 700;
