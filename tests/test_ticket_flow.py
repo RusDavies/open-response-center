@@ -1306,6 +1306,41 @@ class TicketFlowTests(TestCase):
         self.assertContains(response, 'name="body"', html=False)
         self.assertNotContains(response, "Private widget note.")
 
+    def test_ticket_tab_hides_older_generated_opening_report_snapshot(self):
+        ticket = Ticket.objects.create(
+            title="Upserted ticket",
+            description=(
+                "Summary of issue:\nCurrent report summary.\n\n"
+                "Steps to reproduce:\nRun the latest probe.\n\n"
+                "Expected outcome:\nProbe succeeds.\n\n"
+                "Actual outcome:\nProbe failed."
+            ),
+            reporter=self.reporter,
+            issue_summary="Current report summary.",
+            reproduction_steps="Run the latest probe.",
+            expected_outcome="Probe succeeds.",
+            actual_outcome="Probe failed.",
+        )
+        TicketMessage.objects.create(
+            ticket=ticket,
+            author=self.reporter,
+            body=(
+                "Summary of issue:\nOlder report summary.\n\n"
+                "Steps to reproduce:\nRun the old probe.\n\n"
+                "Expected outcome:\nProbe succeeds.\n\n"
+                "Actual outcome:\nProbe failed differently."
+            ),
+        )
+        TicketMessage.objects.create(ticket=ticket, author=self.reporter, body="Actual follow-up.")
+        client = Client()
+        client.force_login(self.reporter)
+
+        response = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
+
+        self.assertContains(response, "Current report summary.")
+        self.assertContains(response, "Actual follow-up.")
+        self.assertNotContains(response, "Older report summary.")
+
     def test_reporter_cannot_create_operator_internal_note_by_tampering(self):
         ticket = Ticket.objects.create(
             title="No hidden reporter notes",
