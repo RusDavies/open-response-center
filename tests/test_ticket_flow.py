@@ -549,6 +549,7 @@ class TicketFlowTests(TestCase):
         self.assertNotContains(response, '<details class="mobile-ticket-state" open>', html=False)
         self.assertContains(response, 'class="desktop-ticket-state"', html=False)
         self.assertContains(response, 'mobile-state-line">\n            <span class="status compact"', html=False)
+        self.assertContains(response, 'class="ticket-header-meta"', html=False)
         self.assertNotContains(response, "Critical state")
         self.assertContains(response, "Details")
         self.assertContains(response, 'label for="tab-ticket"', html=False)

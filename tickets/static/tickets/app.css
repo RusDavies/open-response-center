@@ -1220,6 +1220,10 @@ dd {
     display: none;
   }
 
+  .ticket-header-meta {
+    display: none;
+  }
+
   .topbar {
     gap: 12px;
     min-height: 64px;

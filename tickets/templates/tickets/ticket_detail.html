@@ -7,7 +7,7 @@
   <div>
     <p class="eyebrow">Ticket #{{ ticket.pk }}</p>
     <h1>{{ ticket.title }}</h1>
-    <p>
+    <p class="ticket-header-meta">
       {{ ticket.affected_system|default:"Unspecified system" }} · {{ ticket.get_impact_display }} impact
       {% if ticket.department %} · {{ ticket.department }}{% endif %}
     </p>
