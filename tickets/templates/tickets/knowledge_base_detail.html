@@ -8,13 +8,33 @@
     <p class="eyebrow">Knowledge base</p>
     <h1>{{ article.title }}</h1>
     {% if article.summary %}<p>{{ article.summary }}</p>{% endif %}
+    {% if return_ticket %}
+      <p><a href="{% url 'ticket-detail' return_ticket.pk %}?tab=knowledge">Back to ticket #{{ return_ticket.pk }}</a></p>
+    {% endif %}
   </div>
-  <span class="status">{{ article.get_audience_display }}{% if not article.is_published %} · Draft{% endif %}</span>
+  <span class="status">{{ article.get_audience_display }}{% if not article.is_published %} · Draft{% endif %}{% if article.is_archived %} · Archived{% endif %}</span>
 </section>
 
 <section class="detail-grid">
   <article class="main-flow article-body">
     {{ article.body|linebreaksbr }}
+    {% if user.is_staff %}
+      <div class="button-row article-actions">
+        <a class="button" href="{% url 'knowledge-base-edit' article.slug %}{% if return_ticket %}?ticket={{ return_ticket.pk }}{% endif %}">Edit</a>
+        {% if not article.is_archived %}
+          <form method="post" action="{% url 'knowledge-base-archive' article.slug %}">
+            {% csrf_token %}
+            <button type="submit">Archive</button>
+          </form>
+        {% endif %}
+        {% if user.is_superuser %}
+          <form method="post" action="{% url 'knowledge-base-delete' article.slug %}">
+            {% csrf_token %}
+            <button type="submit">Delete</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
   </article>
   <aside class="side-panel">
     <section>
@@ -34,6 +54,18 @@
         <dd>{{ article.updated_at|date:"Y-m-d H:i" }}</dd>
       </dl>
     </section>
+    {% if user.is_staff %}
+      <section>
+        <h2>Linked tickets</h2>
+        <ul class="attachment-list">
+          {% for link in article.ticket_links.all %}
+            <li><a href="{% url 'ticket-detail' link.ticket.pk %}?tab=knowledge">#{{ link.ticket.pk }} {{ link.ticket.title }}</a></li>
+          {% empty %}
+            <li class="empty">No linked tickets.</li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
   </aside>
 </section>
 {% endblock %}

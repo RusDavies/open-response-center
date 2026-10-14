@@ -1063,6 +1063,136 @@ time,
   gap: 10px;
 }
 
+.knowledge-section {
+  border-top: 1px solid var(--line);
+  padding: 18px 0;
+}
+
+.knowledge-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.section-heading {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-heading h3 {
+  font-size: 1rem;
+  margin: 0 0 4px;
+}
+
+.section-heading p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.knowledge-card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.knowledge-card {
+  background: #fbfcfb;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.knowledge-card header {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.knowledge-card h4 {
+  font-size: 1rem;
+  margin: 0 0 4px;
+}
+
+.knowledge-card p {
+  margin: 0;
+}
+
+.knowledge-note {
+  background: #f8faf8;
+  border-left: 3px solid #cdd8d1;
+  margin-top: 10px !important;
+  padding: 8px 10px;
+}
+
+.knowledge-actions,
+.button-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.knowledge-actions form,
+.article-actions form {
+  display: inline-flex;
+  margin: 0;
+}
+
+.inline-note-editor summary {
+  align-items: center;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 700;
+  min-height: 40px;
+  padding: 8px 14px;
+}
+
+.inline-note-editor[open] summary {
+  margin-bottom: 8px;
+}
+
+.knowledge-search {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.knowledge-search-main {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.knowledge-search-main label {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.knowledge-filters {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.knowledge-filters label,
+.inline-link-form {
+  display: grid;
+  gap: 5px;
+}
+
+.inline-link-form {
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-top: 10px;
+}
+
 .upload-guidance {
   margin-bottom: 10px;
 }
@@ -1342,6 +1472,18 @@ dd {
   }
 
   .operator-update-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .knowledge-card header,
+  .section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .knowledge-filters,
+  .knowledge-search-main,
+  .inline-link-form {
     grid-template-columns: 1fr;
   }
 

@@ -1,20 +1,39 @@
 {% extends "tickets/base.html" %}
 
-{% block title %}New knowledge article - Open Response Center{% endblock %}
+{% block title %}{% if mode == "edit" %}Edit{% elif mode == "draft" %}Draft{% else %}New{% endif %} knowledge article - Open Response Center{% endblock %}
 
 {% block content %}
 <section class="page-heading">
   <div>
-    <h1>New knowledge article</h1>
-    <p>Create internal guidance, a known issue, or an operator runbook.</p>
+    <h1>{% if mode == "edit" %}Edit knowledge article{% elif mode == "draft" %}Draft from ticket{% else %}New knowledge article{% endif %}</h1>
+    {% if source_ticket %}
+      <p>Review and edit this article before saving it from ticket #{{ source_ticket.pk }}.</p>
+    {% else %}
+      <p>Create internal guidance, a known issue, or an operator runbook.</p>
+    {% endif %}
   </div>
+  {% if source_ticket %}
+    <a class="button" href="{% url 'ticket-detail' source_ticket.pk %}?tab=knowledge">Back to ticket #{{ source_ticket.pk }}</a>
+  {% endif %}
 </section>
 
 <section class="form-panel">
   <form method="post" class="stack">
     {% csrf_token %}
+    {% if source_ticket %}<input type="hidden" name="ticket" value="{{ source_ticket.pk }}">{% endif %}
     {{ form.as_p }}
-    <button class="primary" type="submit">Save article</button>
+    <div class="button-row">
+      <button class="primary" type="submit" name="article_action" value="save">Save draft</button>
+      <button type="submit" name="article_action" value="publish" onclick="document.getElementById('id_is_published').checked = true">Publish</button>
+      {% if source_ticket %}<button type="submit" name="article_action" value="save_and_link">Save and link</button>{% endif %}
+      {% if source_ticket %}
+        <a class="button" href="{% url 'ticket-detail' source_ticket.pk %}?tab=knowledge">Cancel</a>
+      {% elif article %}
+        <a class="button" href="{{ article.get_absolute_url }}">Cancel</a>
+      {% else %}
+        <a class="button" href="{% url 'knowledge-base-list' %}">Cancel</a>
+      {% endif %}
+    </div>
   </form>
 </section>
 {% endblock %}

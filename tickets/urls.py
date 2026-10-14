@@ -26,6 +26,9 @@ urlpatterns = [
     path("preferences/", views.notification_preferences, name="notification-preferences"),
     path("knowledge-base/", views.knowledge_base_list, name="knowledge-base-list"),
     path("knowledge-base/new/", views.knowledge_base_create, name="knowledge-base-create"),
+    path("knowledge-base/<slug:slug>/edit/", views.knowledge_base_edit, name="knowledge-base-edit"),
+    path("knowledge-base/<slug:slug>/archive/", views.knowledge_base_archive, name="knowledge-base-archive"),
+    path("knowledge-base/<slug:slug>/delete/", views.knowledge_base_delete, name="knowledge-base-delete"),
     path("knowledge-base/<slug:slug>/", views.knowledge_base_detail, name="knowledge-base-detail"),
     path("operator/board/", views.ticket_board, name="ticket-board"),
     path("operator/board/reorder/", views.reorder_ticket_board, name="ticket-board-reorder"),
@@ -34,6 +37,16 @@ urlpatterns = [
     path("tickets/<int:pk>/messages/", views.add_message, name="ticket-add-message"),
     path("tickets/<int:pk>/attachments/", views.add_attachment, name="ticket-add-attachment"),
     path("operator/tickets/<int:pk>/knowledge-base/", views.link_knowledge_base_article, name="ticket-link-knowledge-base"),
+    path(
+        "operator/tickets/<int:pk>/knowledge-base/<int:link_pk>/",
+        views.update_knowledge_base_link,
+        name="ticket-update-knowledge-base-link",
+    ),
+    path(
+        "operator/tickets/<int:pk>/knowledge-base/<int:link_pk>/unlink/",
+        views.unlink_knowledge_base_article,
+        name="ticket-unlink-knowledge-base",
+    ),
     path(
         "operator/tickets/<int:pk>/knowledge-base/draft/",
         views.draft_knowledge_base_from_ticket,
