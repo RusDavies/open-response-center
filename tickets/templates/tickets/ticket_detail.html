@@ -140,8 +140,8 @@
   </aside>
 
   <article class="ticket-task-tabs">
-    <input class="tab-control" type="radio" name="ticket-tabs" id="tab-ticket" checked>
-    <input class="tab-control" type="radio" name="ticket-tabs" id="tab-knowledge">
+    <input class="tab-control" type="radio" name="ticket-tabs" id="tab-ticket"{% if active_tab != "knowledge" %} checked{% endif %}>
+    <input class="tab-control" type="radio" name="ticket-tabs" id="tab-knowledge"{% if active_tab == "knowledge" %} checked{% endif %}>
     {% if user.is_staff %}
       <input class="tab-control" type="radio" name="ticket-tabs" id="tab-workflow">
       <input class="tab-control" type="radio" name="ticket-tabs" id="tab-incident">
@@ -305,26 +305,155 @@
 
       <section class="tab-panel tab-knowledge-panel">
         <h2>Knowledge</h2>
-        <ul class="attachment-list">
-          {% for link in knowledge_links %}
-            <li>
-              <a href="{{ link.article.get_absolute_url }}">{{ link.article.title }}</a>
-              {% if link.note %}<span>{{ link.note }}</span>{% endif %}
-            </li>
-          {% empty %}
-            <li class="empty">No linked articles.</li>
-          {% endfor %}
-        </ul>
         {% if user.is_staff %}
-          <form method="post" action="{% url 'ticket-link-knowledge-base' ticket.pk %}" class="stack">
-            {% csrf_token %}
-            {{ knowledge_link_form.as_p }}
-            <button type="submit">Link article</button>
-          </form>
-          <form method="post" action="{% url 'ticket-draft-knowledge-base' ticket.pk %}" class="stack split-action">
-            {% csrf_token %}
-            <button type="submit">Draft from ticket</button>
-          </form>
+          <section class="knowledge-section linked-guidance">
+            <header class="section-heading">
+              <div>
+                <h3>Linked guidance</h3>
+                <p>Reusable articles attached to this ticket.</p>
+              </div>
+            </header>
+            <div class="knowledge-card-list">
+              {% for link in knowledge_links %}
+                <article class="knowledge-card">
+                  <header>
+                    <div>
+                      <h4><a href="{{ link.article.get_absolute_url }}?ticket={{ ticket.pk }}">{{ link.article.title }}</a></h4>
+                      {% if link.article.summary %}<p>{{ link.article.summary }}</p>{% endif %}
+                    </div>
+                    <span class="pill">{{ link.article.get_audience_display }}{% if not link.article.is_published %} · Draft{% endif %}{% if link.article.is_archived %} · Archived{% endif %}</span>
+                  </header>
+                  <p class="hint">
+                    Linked by {{ link.linked_by|default:"Unknown" }} · Article updated {{ link.article.updated_at|date:"Y-m-d H:i" }}
+                  </p>
+                  {% if link.note %}<p class="knowledge-note">{{ link.note }}</p>{% endif %}
+                  <div class="knowledge-actions">
+                    <a class="button" href="{{ link.article.get_absolute_url }}?ticket={{ ticket.pk }}">Open</a>
+                    <details class="inline-note-editor">
+                      <summary>Edit note</summary>
+                      <form method="post" action="{% url 'ticket-update-knowledge-base-link' ticket.pk link.pk %}" class="stack">
+                        {% csrf_token %}
+                        <label for="link-note-{{ link.pk }}">Relevance note</label>
+                        <textarea id="link-note-{{ link.pk }}" name="note" rows="2">{{ link.note }}</textarea>
+                        <button type="submit">Save note</button>
+                      </form>
+                    </details>
+                    <form method="post" action="{% url 'ticket-unlink-knowledge-base' ticket.pk link.pk %}">
+                      {% csrf_token %}
+                      <button type="submit">Unlink</button>
+                    </form>
+                  </div>
+                </article>
+              {% empty %}
+                <p class="empty">No linked guidance yet.</p>
+              {% endfor %}
+            </div>
+          </section>
+
+          <section class="knowledge-section find-guidance">
+            <header class="section-heading">
+              <div>
+                <h3>Find guidance</h3>
+                <p>Search the knowledge base without leaving this ticket.</p>
+              </div>
+            </header>
+            <form method="get" class="knowledge-search">
+              <input type="hidden" name="tab" value="knowledge">
+              <div class="knowledge-search-main">
+                <label for="kb-q">Search</label>
+                <input id="kb-q" type="search" name="kb_q" value="{{ knowledge_search_form.q.value|default:'' }}" placeholder="System, symptom, tag, or runbook">
+                <button type="submit">Search</button>
+              </div>
+              <div class="knowledge-filters">
+                <label>
+                  System
+                  <select name="kb_system">
+                    <option value="">Any system</option>
+                    {% for system in knowledge_search_form.fields.system.queryset %}
+                      <option value="{{ system.pk }}"{% if knowledge_search_form.system.value|stringformat:"s" == system.pk|stringformat:"s" %} selected{% endif %}>{{ system.name }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Audience
+                  <select name="kb_audience">
+                    {% for value,label in knowledge_search_form.fields.audience.choices %}
+                      <option value="{{ value }}"{% if knowledge_search_form.audience.value == value %} selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Status
+                  <select name="kb_status">
+                    {% for value,label in knowledge_search_form.fields.status.choices %}
+                      <option value="{{ value }}"{% if knowledge_search_form.status.value == value %} selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Tag
+                  <input type="search" name="kb_tag" value="{{ knowledge_search_form.tag.value|default:'' }}" placeholder="email, gateway, uploads">
+                </label>
+              </div>
+            </form>
+            <div class="knowledge-card-list">
+              {% for article in knowledge_results %}
+                <article class="knowledge-card">
+                  <header>
+                    <div>
+                      <h4><a href="{{ article.get_absolute_url }}?ticket={{ ticket.pk }}">{{ article.title }}</a></h4>
+                      {% if article.summary %}<p>{{ article.summary }}</p>{% endif %}
+                    </div>
+                    <span class="pill">{{ article.get_audience_display }}{% if not article.is_published %} · Draft{% endif %}</span>
+                  </header>
+                  <p class="hint">
+                    {% for system in article.systems.all %}
+                      {{ system.name }}{% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                      General
+                    {% endfor %}
+                    {% if article.tags %} · {{ article.tags }}{% endif %}
+                    · Updated {{ article.updated_at|date:"Y-m-d H:i" }}
+                  </p>
+                  <form method="post" action="{% url 'ticket-link-knowledge-base' ticket.pk %}" class="inline-link-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="article" value="{{ article.pk }}">
+                    <input type="text" name="note" placeholder="Optional relevance note">
+                    <button type="submit">Link</button>
+                  </form>
+                </article>
+              {% empty %}
+                <p class="empty">No matching guidance.</p>
+              {% endfor %}
+            </div>
+          </section>
+
+          <section class="knowledge-section create-guidance">
+            <header class="section-heading">
+              <div>
+                <h3>Create guidance</h3>
+                <p>Create reusable guidance from scratch or start with this ticket.</p>
+              </div>
+            </header>
+            <div class="knowledge-actions">
+              <a class="button" href="{% url 'knowledge-base-create' %}?ticket={{ ticket.pk }}">New article</a>
+              <a class="button primary" href="{% url 'ticket-draft-knowledge-base' ticket.pk %}">Draft from ticket</a>
+            </div>
+          </section>
+        {% else %}
+          <section class="knowledge-section linked-guidance">
+            <h3>Linked guidance</h3>
+            <div class="knowledge-card-list">
+              {% for link in knowledge_links %}
+                <article class="knowledge-card">
+                  <h4><a href="{{ link.article.get_absolute_url }}">{{ link.article.title }}</a></h4>
+                  {% if link.article.summary %}<p>{{ link.article.summary }}</p>{% endif %}
+                </article>
+              {% empty %}
+                <p class="empty">No linked guidance yet.</p>
+              {% endfor %}
+            </div>
+          </section>
         {% endif %}
       </section>
 

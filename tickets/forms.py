@@ -10,6 +10,7 @@ from .models import (
     IncidentRisk,
     IncidentScope,
     KnowledgeBaseArticle,
+    KnowledgeBaseAudience,
     NotificationPreference,
     HumanInputRequired,
     System,
@@ -252,9 +253,10 @@ class OperatorUpdateForm(forms.ModelForm):
 class KnowledgeBaseArticleForm(forms.ModelForm):
     class Meta:
         model = KnowledgeBaseArticle
-        fields = ["title", "slug", "summary", "body", "audience", "systems", "tags", "is_published"]
+        fields = ["title", "slug", "summary", "body", "audience", "systems", "tags", "is_published", "is_archived"]
         labels = {
             "is_published": "Published",
+            "is_archived": "Archived",
         }
         help_texts = {
             "slug": "Leave blank to derive it from the title.",
@@ -278,7 +280,26 @@ class TicketKnowledgeBaseLinkForm(forms.ModelForm):
         user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         queryset = KnowledgeBaseArticle.visible_to(user) if user is not None else KnowledgeBaseArticle.objects.none()
-        self.fields["article"].queryset = queryset.order_by("title")
+        self.fields["article"].queryset = queryset.filter(is_archived=False).order_by("title")
+
+
+class KnowledgeBaseSearchForm(forms.Form):
+    STATUS_CHOICES = [
+        ("", "Any status"),
+        ("published", "Published"),
+        ("draft", "Draft"),
+        ("archived", "Archived"),
+    ]
+
+    q = forms.CharField(required=False, label="Search")
+    system = forms.ModelChoiceField(required=False, queryset=System.objects.none(), empty_label="Any system")
+    audience = forms.ChoiceField(required=False, choices=[("", "Any audience"), *KnowledgeBaseAudience.choices])
+    status = forms.ChoiceField(required=False, choices=STATUS_CHOICES)
+    tag = forms.CharField(required=False, label="Tag")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["system"].queryset = System.objects.order_by("name")
 
 
 class IncidentClassificationForm(forms.Form):

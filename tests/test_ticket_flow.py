@@ -675,12 +675,29 @@ class TicketFlowTests(TestCase):
             {"article": article.pk, "note": "Use this when uploads fail."},
         )
 
-        self.assertRedirects(response, reverse("ticket-detail", kwargs={"pk": ticket.pk}))
+        self.assertRedirects(response, f"{reverse('ticket-detail', kwargs={'pk': ticket.pk})}?tab=knowledge")
         link = TicketKnowledgeBaseLink.objects.get(ticket=ticket, article=article)
         self.assertEqual(link.note, "Use this when uploads fail.")
 
-        detail = client.get(reverse("ticket-detail", kwargs={"pk": ticket.pk}))
+        detail = client.get(f"{reverse('ticket-detail', kwargs={'pk': ticket.pk})}?tab=knowledge")
+        self.assertContains(detail, "Linked guidance")
+        self.assertContains(detail, "Find guidance")
+        self.assertContains(detail, "Create guidance")
         self.assertContains(detail, "Upload failure runbook")
+        self.assertContains(detail, "Edit note")
+        self.assertContains(detail, "Unlink")
+
+        response = client.post(
+            reverse("ticket-update-knowledge-base-link", kwargs={"pk": ticket.pk, "link_pk": link.pk}),
+            {"note": "Updated relevance."},
+        )
+        self.assertRedirects(response, f"{reverse('ticket-detail', kwargs={'pk': ticket.pk})}?tab=knowledge")
+        link.refresh_from_db()
+        self.assertEqual(link.note, "Updated relevance.")
+
+        response = client.post(reverse("ticket-unlink-knowledge-base", kwargs={"pk": ticket.pk, "link_pk": link.pk}))
+        self.assertRedirects(response, f"{reverse('ticket-detail', kwargs={'pk': ticket.pk})}?tab=knowledge")
+        self.assertFalse(TicketKnowledgeBaseLink.objects.filter(pk=link.pk).exists())
 
     def test_operator_can_draft_knowledge_article_from_ticket(self):
         ticket = Ticket.objects.create(
@@ -695,15 +712,90 @@ class TicketFlowTests(TestCase):
         client = Client()
         client.force_login(self.operator)
 
-        response = client.post(reverse("ticket-draft-knowledge-base", kwargs={"pk": ticket.pk}))
+        response = client.get(reverse("ticket-draft-knowledge-base", kwargs={"pk": ticket.pk}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Draft from ticket")
+        self.assertContains(response, "Operator Notes")
+
+        response = client.post(
+            reverse("ticket-draft-knowledge-base", kwargs={"pk": ticket.pk}),
+            {
+                "title": f"Runbook: {ticket.title}",
+                "slug": f"ticket-{ticket.pk}-node-disconnects-during-upload",
+                "summary": ticket.issue_summary,
+                "body": "Edited draft body.\n\n## Operator Notes\n\nCheck logs.",
+                "audience": KnowledgeBaseAudience.OPERATORS,
+                "systems": [self.system.pk],
+                "tags": "draft, ticket-derived",
+                "article_action": "save_and_link",
+            },
+        )
 
         article = KnowledgeBaseArticle.objects.get(slug__startswith=f"ticket-{ticket.pk}-")
-        self.assertRedirects(response, article.get_absolute_url())
+        self.assertRedirects(response, f"{reverse('ticket-detail', kwargs={'pk': ticket.pk})}?tab=knowledge")
         self.assertEqual(article.audience, KnowledgeBaseAudience.OPERATORS)
         self.assertFalse(article.is_published)
         self.assertIn("Operator Notes", article.body)
         self.assertTrue(article.systems.filter(pk=self.system.pk).exists())
         self.assertTrue(TicketKnowledgeBaseLink.objects.filter(ticket=ticket, article=article).exists())
+
+    def test_operator_can_search_edit_and_archive_knowledge_article_from_ticket(self):
+        ticket = Ticket.objects.create(
+            title="Gateway retries",
+            description="Gateway retries uploads.",
+            reporter=self.reporter,
+            affected_system=self.system,
+        )
+        article = KnowledgeBaseArticle.objects.create(
+            title="Gateway retry runbook",
+            slug="gateway-retry-runbook",
+            summary="Retry guidance.",
+            body="Check retry queue.",
+            audience=KnowledgeBaseAudience.ALL_INTERNAL,
+            is_published=True,
+            created_by=self.operator,
+            updated_by=self.operator,
+        )
+        article.systems.add(self.system)
+        client = Client()
+        client.force_login(self.operator)
+
+        detail = client.get(
+            f"{reverse('ticket-detail', kwargs={'pk': ticket.pk})}?tab=knowledge&kb_q=retry&kb_system={self.system.pk}"
+        )
+
+        self.assertContains(detail, "Gateway retry runbook")
+        self.assertContains(detail, "Link")
+        self.assertNotContains(detail, "<select name=\"article\"", html=False)
+
+        response = client.post(
+            f"{reverse('knowledge-base-edit', kwargs={'slug': article.slug})}?ticket={ticket.pk}",
+            {
+                "ticket": ticket.pk,
+                "title": "Gateway retry runbook",
+                "slug": article.slug,
+                "summary": "Updated retry guidance.",
+                "body": "Check queue and gateway logs.",
+                "audience": KnowledgeBaseAudience.ALL_INTERNAL,
+                "systems": [self.system.pk],
+                "tags": "gateway, uploads",
+                "is_published": "on",
+                "article_action": "save_and_link",
+            },
+        )
+
+        self.assertRedirects(response, f"{reverse('ticket-detail', kwargs={'pk': ticket.pk})}?tab=knowledge")
+        article.refresh_from_db()
+        self.assertEqual(article.summary, "Updated retry guidance.")
+        self.assertTrue(TicketKnowledgeBaseLink.objects.filter(ticket=ticket, article=article).exists())
+
+        response = client.post(reverse("knowledge-base-archive", kwargs={"slug": article.slug}))
+
+        self.assertRedirects(response, reverse("knowledge-base-list"))
+        article.refresh_from_db()
+        self.assertTrue(article.is_archived)
+        self.assertFalse(article.is_published)
 
     def test_operator_status_update_records_lifecycle_event(self):
         ticket = Ticket.objects.create(

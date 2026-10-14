@@ -323,6 +323,7 @@ class KnowledgeBaseArticle(models.Model):
     systems = models.ManyToManyField(System, blank=True, related_name="knowledge_base_articles")
     tags = models.CharField(max_length=240, blank=True, help_text="Comma-separated internal tags.")
     is_published = models.BooleanField(default=False)
+    is_archived = models.BooleanField(default=False)
     created_by = models.ForeignKey(
         User,
         blank=True,
@@ -359,6 +360,8 @@ class KnowledgeBaseArticle(models.Model):
             return False
         if user.is_staff:
             return True
+        if self.is_archived:
+            return False
         return bool(self.is_published and self.audience == KnowledgeBaseAudience.ALL_INTERNAL)
 
     @classmethod
@@ -368,7 +371,7 @@ class KnowledgeBaseArticle(models.Model):
             return queryset.none()
         if user.is_staff:
             return queryset
-        return queryset.filter(is_published=True, audience=KnowledgeBaseAudience.ALL_INTERNAL)
+        return queryset.filter(is_archived=False, is_published=True, audience=KnowledgeBaseAudience.ALL_INTERNAL)
 
 
 class Ticket(models.Model):

@@ -82,9 +82,10 @@ healthy rows and `--fail-on-breach` when wiring the command into automation.
 
 ## Knowledge Base
 
-The knowledge base is internal-only. Articles can be published for all internal users or kept
-operator-only. Operators can create articles directly, link articles to tickets, or draft an
-operator-only runbook from a ticket's structured intake fields.
+The knowledge base is internal-only. Articles can be published for all internal users, kept
+operator-only, saved as drafts, or archived. Operators can create and edit articles directly, link
+articles to tickets, unlink accidental links, edit per-ticket relevance notes, or draft an
+operator-only runbook from a ticket's structured intake fields after reviewing the generated draft.
 
 `TicketKnowledgeBaseLink` records reusable guidance attached to a ticket without turning the ticket
 thread into the article source of truth. Repeated tickets should graduate into articles when the

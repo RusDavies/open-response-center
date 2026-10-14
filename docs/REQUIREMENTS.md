@@ -20,6 +20,12 @@
 - Internal users can search published knowledge-base articles for known issues, runbooks, and guidance.
 - Operators can create draft or published knowledge-base articles and link them to tickets.
 - Operators can draft an operator-only knowledge-base article from an existing ticket.
+- Operators can manage linked ticket guidance in-place: search large knowledge bases from the ticket,
+  link more than one relevant article, edit relevance notes, unlink accidental links, and stay on the
+  Knowledge tab after knowledge actions.
+- Operators can edit, publish, unpublish, and archive knowledge-base articles beyond the
+  draft-from-ticket path. Drafting from a ticket must open a prefilled editor before committing the
+  article.
 - Users can independently enable or disable email updates for lifecycle changes and new messages.
 - Operators can link a report to a canonical `INC-...` incident.
 - Operators can promote a report into an operational incident through an adapter-backed workflow.

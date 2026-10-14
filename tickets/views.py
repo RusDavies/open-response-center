@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
@@ -11,6 +12,7 @@ from .forms import (
     IncidentClassificationForm,
     InternalNoteForm,
     KnowledgeBaseArticleForm,
+    KnowledgeBaseSearchForm,
     MessageForm,
     NotificationPreferenceForm,
     OperatorUpdateForm,
@@ -23,6 +25,7 @@ from .models import (
     KnowledgeBaseArticle,
     KnowledgeBaseAudience,
     NotificationPreference,
+    System,
     Ticket,
     TicketKnowledgeBaseLink,
     TicketStatus,
@@ -107,7 +110,70 @@ def _visible_knowledge_links(ticket: Ticket, user):
     queryset = ticket.knowledge_base_links.select_related("article", "linked_by").prefetch_related("article__systems")
     if user.is_staff:
         return queryset
-    return queryset.filter(article__is_published=True, article__audience=KnowledgeBaseAudience.ALL_INTERNAL)
+    return queryset.filter(
+        article__is_archived=False,
+        article__is_published=True,
+        article__audience=KnowledgeBaseAudience.ALL_INTERNAL,
+    )
+
+
+def _ticket_tab_url(ticket: Ticket, tab: str = "knowledge") -> str:
+    return f"{reverse('ticket-detail', kwargs={'pk': ticket.pk})}?tab={tab}"
+
+
+def _draft_body_from_ticket(ticket: Ticket) -> str:
+    return (
+        f"# {ticket.title}\n\n"
+        f"## Symptom\n\n{ticket.issue_summary or ticket.description}\n\n"
+        f"## Reproduction\n\n{ticket.reproduction_steps or '-'}\n\n"
+        f"## Expected\n\n{ticket.expected_outcome or '-'}\n\n"
+        f"## Actual\n\n{ticket.actual_outcome or '-'}\n\n"
+        "## Operator Notes\n\nAdd triage, mitigation, and verification steps here.\n"
+    )
+
+
+def _knowledge_search_results(user, ticket: Ticket, form: KnowledgeBaseSearchForm, linked_article_ids):
+    articles = KnowledgeBaseArticle.visible_to(user)
+    articles = articles.exclude(pk__in=linked_article_ids)
+    if not user.is_staff:
+        articles = articles.filter(is_archived=False)
+    if form.is_valid():
+        query = form.cleaned_data.get("q", "").strip()
+        system = form.cleaned_data.get("system")
+        audience = form.cleaned_data.get("audience", "")
+        status = form.cleaned_data.get("status", "")
+        tag = form.cleaned_data.get("tag", "").strip()
+    else:
+        query = ""
+        system = None
+        audience = ""
+        status = ""
+        tag = ""
+    if query:
+        articles = articles.filter(
+            Q(title__icontains=query)
+            | Q(summary__icontains=query)
+            | Q(body__icontains=query)
+            | Q(tags__icontains=query)
+            | Q(systems__name__icontains=query)
+        ).distinct()
+    elif ticket.affected_system_id:
+        articles = articles.filter(systems=ticket.affected_system)
+    if system:
+        articles = articles.filter(systems=system)
+    if audience:
+        articles = articles.filter(audience=audience)
+    if tag:
+        articles = articles.filter(tags__icontains=tag)
+    if status == "published":
+        articles = articles.filter(is_archived=False, is_published=True)
+    elif status == "draft":
+        articles = articles.filter(is_archived=False, is_published=False)
+    elif status == "archived":
+        articles = articles.filter(is_archived=True)
+    else:
+        articles = articles.filter(is_archived=False)
+    return articles.distinct().order_by("-updated_at", "title")[:8]
 
 
 def _is_generated_opening_report_message(ticket: Ticket, message) -> bool:
@@ -273,15 +339,33 @@ def ticket_detail(request, pk: int):
     )
     timeline_items.sort(key=lambda item: item["created_at"])
     knowledge_links = _visible_knowledge_links(ticket, request.user)
+    linked_article_ids = [link.article_id for link in knowledge_links]
+    knowledge_search_form = KnowledgeBaseSearchForm(
+        {
+            "q": request.GET.get("kb_q", ""),
+            "system": request.GET.get("kb_system", ticket.affected_system_id or ""),
+            "audience": request.GET.get("kb_audience", ""),
+            "status": request.GET.get("kb_status", ""),
+            "tag": request.GET.get("kb_tag", ""),
+        }
+    )
+    knowledge_results = (
+        _knowledge_search_results(request.user, ticket, knowledge_search_form, linked_article_ids)
+        if request.user.is_staff
+        else []
+    )
+    active_tab = request.GET.get("tab", "ticket")
 
     return render(
         request,
         "tickets/ticket_detail.html",
         {
             "ticket": ticket,
+            "active_tab": active_tab,
             "timeline_items": timeline_items,
             "knowledge_links": knowledge_links,
-            "knowledge_link_form": TicketKnowledgeBaseLinkForm(user=request.user) if request.user.is_staff else None,
+            "knowledge_search_form": knowledge_search_form if request.user.is_staff else None,
+            "knowledge_results": knowledge_results,
             "message_form": MessageForm(),
             "internal_note_form": InternalNoteForm() if request.user.is_staff else None,
             "attachment_form": AttachmentUploadForm(),
@@ -353,6 +437,8 @@ def download_attachment(request, pk: int):
 @login_required
 def knowledge_base_list(request):
     articles = KnowledgeBaseArticle.visible_to(request.user)
+    if not request.user.is_staff:
+        articles = articles.filter(is_archived=False)
     query = request.GET.get("q", "").strip()
     if query:
         articles = articles.filter(
@@ -372,29 +458,119 @@ def knowledge_base_list(request):
 @login_required
 def knowledge_base_detail(request, slug: str):
     article = get_object_or_404(
-        KnowledgeBaseArticle.objects.prefetch_related("systems").select_related("created_by", "updated_by"),
+        KnowledgeBaseArticle.objects.prefetch_related("systems", "ticket_links__ticket").select_related(
+            "created_by", "updated_by"
+        ),
         slug=slug,
     )
     if not article.can_be_viewed_by(request.user):
         raise Http404
-    return render(request, "tickets/knowledge_base_detail.html", {"article": article})
+    return_ticket = None
+    ticket_id = request.GET.get("ticket")
+    if ticket_id and ticket_id.isdigit():
+        return_ticket = Ticket.objects.filter(pk=int(ticket_id)).select_related("reporter").first()
+        if return_ticket and not return_ticket.can_be_viewed_by(request.user):
+            return_ticket = None
+    return render(
+        request,
+        "tickets/knowledge_base_detail.html",
+        {"article": article, "return_ticket": return_ticket},
+    )
 
 
 @user_passes_test(_is_operator)
 def knowledge_base_create(request):
+    source_ticket = None
+    source_ticket_id = request.POST.get("ticket") if request.method == "POST" else request.GET.get("ticket")
+    if source_ticket_id and source_ticket_id.isdigit():
+        source_ticket = get_object_or_404(Ticket.objects.select_related("affected_system", "reporter"), pk=source_ticket_id)
     if request.method == "POST":
         form = KnowledgeBaseArticleForm(request.POST)
         if form.is_valid():
             article = form.save(commit=False)
+            if request.POST.get("article_action") == "publish":
+                article.is_published = True
+                article.is_archived = False
             article.created_by = request.user
             article.updated_by = request.user
             article.save()
             form.save_m2m()
+            if source_ticket and request.POST.get("article_action") == "save_and_link":
+                TicketKnowledgeBaseLink.objects.get_or_create(
+                    ticket=source_ticket,
+                    article=article,
+                    defaults={"note": "Created from this ticket.", "linked_by": request.user},
+                )
+                messages.success(request, "Knowledge article saved and linked.")
+                return redirect(_ticket_tab_url(source_ticket))
             messages.success(request, "Knowledge article saved.")
             return redirect(article.get_absolute_url())
     else:
         form = KnowledgeBaseArticleForm()
-    return render(request, "tickets/knowledge_base_form.html", {"form": form})
+    return render(
+        request,
+        "tickets/knowledge_base_form.html",
+        {"form": form, "source_ticket": source_ticket, "mode": "create"},
+    )
+
+
+@user_passes_test(_is_operator)
+def knowledge_base_edit(request, slug: str):
+    article = get_object_or_404(KnowledgeBaseArticle.objects.prefetch_related("systems"), slug=slug)
+    return_ticket = None
+    ticket_id = request.POST.get("ticket") if request.method == "POST" else request.GET.get("ticket")
+    if ticket_id and ticket_id.isdigit():
+        return_ticket = get_object_or_404(Ticket, pk=ticket_id)
+    if request.method == "POST":
+        form = KnowledgeBaseArticleForm(request.POST, instance=article)
+        if form.is_valid():
+            article = form.save(commit=False)
+            if request.POST.get("article_action") == "publish":
+                article.is_published = True
+                article.is_archived = False
+            article.updated_by = request.user
+            article.save()
+            form.save_m2m()
+            if return_ticket and request.POST.get("article_action") == "save_and_link":
+                TicketKnowledgeBaseLink.objects.get_or_create(
+                    ticket=return_ticket,
+                    article=article,
+                    defaults={"note": "Linked after article edit.", "linked_by": request.user},
+                )
+                messages.success(request, "Knowledge article saved and linked.")
+                return redirect(_ticket_tab_url(return_ticket))
+            messages.success(request, "Knowledge article saved.")
+            if return_ticket:
+                return redirect(f"{article.get_absolute_url()}?ticket={return_ticket.pk}")
+            return redirect(article.get_absolute_url())
+    else:
+        form = KnowledgeBaseArticleForm(instance=article)
+    return render(
+        request,
+        "tickets/knowledge_base_form.html",
+        {"form": form, "article": article, "source_ticket": return_ticket, "mode": "edit"},
+    )
+
+
+@user_passes_test(_is_operator)
+@require_POST
+def knowledge_base_archive(request, slug: str):
+    article = get_object_or_404(KnowledgeBaseArticle, slug=slug)
+    article.is_archived = True
+    article.is_published = False
+    article.updated_by = request.user
+    article.save(update_fields=["is_archived", "is_published", "updated_by", "updated_at"])
+    messages.success(request, "Knowledge article archived.")
+    return redirect("knowledge-base-list")
+
+
+@user_passes_test(lambda user: user.is_superuser)
+@require_POST
+def knowledge_base_delete(request, slug: str):
+    article = get_object_or_404(KnowledgeBaseArticle, slug=slug)
+    article.delete()
+    messages.success(request, "Knowledge article deleted.")
+    return redirect("knowledge-base-list")
 
 
 @user_passes_test(_is_operator)
@@ -430,7 +606,7 @@ def update_workflow_checklist(request, pk: int):
 def link_knowledge_base_article(request, pk: int):
     ticket = get_object_or_404(Ticket, pk=pk)
     if request.method != "POST":
-        return redirect("ticket-detail", pk=ticket.pk)
+        return redirect(_ticket_tab_url(ticket))
     form = TicketKnowledgeBaseLinkForm(request.POST, user=request.user)
     if form.is_valid():
         article = form.cleaned_data["article"]
@@ -451,44 +627,79 @@ def link_knowledge_base_article(request, pk: int):
             messages.info(request, "Knowledge article link updated.")
     else:
         messages.error(request, "Knowledge article link was not accepted.")
-    return redirect("ticket-detail", pk=ticket.pk)
+    return redirect(_ticket_tab_url(ticket))
+
+
+@user_passes_test(_is_operator)
+@require_POST
+def update_knowledge_base_link(request, pk: int, link_pk: int):
+    ticket = get_object_or_404(Ticket, pk=pk)
+    link = get_object_or_404(TicketKnowledgeBaseLink, pk=link_pk, ticket=ticket)
+    link.note = request.POST.get("note", "").strip()
+    link.linked_by = request.user
+    link.save(update_fields=["note", "linked_by"])
+    messages.success(request, "Knowledge link note updated.")
+    return redirect(_ticket_tab_url(ticket))
+
+
+@user_passes_test(_is_operator)
+@require_POST
+def unlink_knowledge_base_article(request, pk: int, link_pk: int):
+    ticket = get_object_or_404(Ticket, pk=pk)
+    link = get_object_or_404(TicketKnowledgeBaseLink, pk=link_pk, ticket=ticket)
+    link.delete()
+    messages.success(request, "Knowledge article unlinked.")
+    return redirect(_ticket_tab_url(ticket))
 
 
 @user_passes_test(_is_operator)
 def draft_knowledge_base_from_ticket(request, pk: int):
     ticket = get_object_or_404(Ticket.objects.select_related("affected_system", "reporter"), pk=pk)
-    if request.method != "POST":
-        return redirect("ticket-detail", pk=ticket.pk)
-    slug = f"ticket-{ticket.pk}-{slugify(ticket.title)[:160]}"
-    article, created = KnowledgeBaseArticle.objects.get_or_create(
-        slug=slug,
-        defaults={
-            "title": f"Runbook: {ticket.title}",
-            "summary": ticket.issue_summary or ticket.title,
-            "body": (
-                f"# {ticket.title}\n\n"
-                f"## Symptom\n\n{ticket.issue_summary or ticket.description}\n\n"
-                f"## Reproduction\n\n{ticket.reproduction_steps or '-'}\n\n"
-                f"## Expected\n\n{ticket.expected_outcome or '-'}\n\n"
-                f"## Actual\n\n{ticket.actual_outcome or '-'}\n\n"
-                "## Operator Notes\n\nAdd triage, mitigation, and verification steps here.\n"
-            ),
-            "audience": KnowledgeBaseAudience.OPERATORS,
-            "tags": "draft, ticket-derived",
-            "is_published": False,
-            "created_by": request.user,
-            "updated_by": request.user,
+    initial = {
+        "title": f"Runbook: {ticket.title}",
+        "slug": f"ticket-{ticket.pk}-{slugify(ticket.title)[:160]}",
+        "summary": ticket.issue_summary or ticket.title,
+        "body": _draft_body_from_ticket(ticket),
+        "audience": KnowledgeBaseAudience.OPERATORS,
+        "tags": "draft, ticket-derived",
+        "is_published": False,
+    }
+    if request.method == "POST":
+        form = KnowledgeBaseArticleForm(request.POST)
+        if form.is_valid():
+            article = form.save(commit=False)
+            if request.POST.get("article_action") == "publish":
+                article.is_published = True
+                article.is_archived = False
+            article.created_by = request.user
+            article.updated_by = request.user
+            article.save()
+            form.save_m2m()
+            if ticket.affected_system:
+                article.systems.add(ticket.affected_system)
+            if request.POST.get("article_action") in {"save_and_link", "publish"}:
+                TicketKnowledgeBaseLink.objects.get_or_create(
+                    ticket=ticket,
+                    article=article,
+                    defaults={"note": "Drafted from this ticket.", "linked_by": request.user},
+                )
+            messages.success(request, "Knowledge article draft saved.")
+            if request.POST.get("article_action") == "save_and_link":
+                return redirect(_ticket_tab_url(ticket))
+            return redirect(f"{article.get_absolute_url()}?ticket={ticket.pk}")
+    else:
+        form = KnowledgeBaseArticleForm(initial=initial)
+        if ticket.affected_system:
+            form.initial["systems"] = [ticket.affected_system.pk]
+    return render(
+        request,
+        "tickets/knowledge_base_form.html",
+        {
+            "form": form,
+            "source_ticket": ticket,
+            "mode": "draft",
         },
     )
-    if ticket.affected_system:
-        article.systems.add(ticket.affected_system)
-    TicketKnowledgeBaseLink.objects.get_or_create(
-        ticket=ticket,
-        article=article,
-        defaults={"note": "Drafted from this ticket.", "linked_by": request.user},
-    )
-    messages.success(request, "Knowledge article draft created." if created else "Knowledge article draft already exists.")
-    return redirect(article.get_absolute_url())
 
 
 @user_passes_test(_is_operator)
